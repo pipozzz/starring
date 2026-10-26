@@ -24,7 +24,7 @@
     "brand": "node scripts/brand.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.1.0",
+    "@anthropic-ai/sdk": "^1.2.0",
     "@astrojs/node": "^11.1.9",
     "@astrojs/react": "^7.1.1",
     "@fontsource/anton": "^5.3.0",
@@ -39,9 +39,9 @@
     "better-auth": "^1.7.12",
     "drizzle-orm": "^0.45.4",
     "fflate": "^0.8.3",
-    "mediabunny": "1.61.3",
-    "nodemailer": "^10.1.7",
-    "openai": "^7.40.0",
+    "mediabunny": "1.62.1",
+    "nodemailer": "^10.2.1",
+    "openai": "^7.43.0",
     "postgres": "^3.4.9",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
