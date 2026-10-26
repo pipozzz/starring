@@ -18,7 +18,7 @@ export type SyncStatus =
 interface Me {
   user: { id: string; name: string; email: string; image?: string | null; githubLinked?: boolean } | null;
   profile: { handle: string; published: boolean; updatedAt: string; data: Profile } | null;
-  features: { allowSignup: boolean; password: boolean; github: boolean; gitlab: boolean; /** 'anthropic' | 'openai' when the instance reads CVs with AI */ cvImport?: string | null };
+  features: { allowSignup: boolean; password: boolean; github: boolean; gitlab: boolean; /** 'anthropic' | 'openai' when the instance reads CVs with AI */ cvImport?: string | null; /** the instance stores uploads (STORAGE) */ uploads?: boolean };
 }
 
 const api = async <T>(method: string, path: string, body?: unknown): Promise<T> => {

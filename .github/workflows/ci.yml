@@ -89,6 +89,8 @@ jobs:
       BETTER_AUTH_SECRET: ci-only-secret-not-used-anywhere-else-000000
       ADMIN_EMAILS: e2e-admin@starring.test
       CUSTOM_DOMAINS: 'true'
+      STORAGE: local
+      STORAGE_DIR: /tmp/starring-uploads
       SMTP_HOST: 127.0.0.1
       SMTP_PORT: 1025
       HOST: 127.0.0.1

@@ -4,7 +4,7 @@
 
 import type { Scene } from '../script';
 import {
-  clamp, compactNumber, envelope, heatGeometry, lerp, lockup, measure, outBack, outCubic, outExpo, roundRect, scaled, seg, text, wrap,
+  clamp, compactNumber, cover, envelope, heatGeometry, lerp, lockup, titleLayout, measure, outBack, outCubic, outExpo, roundRect, scaled, seg, text, wrap,
   type Genre, type SceneCtx, type Stage,
 } from '../engine';
 
@@ -308,38 +308,65 @@ function accolade({ st, s, dur }: SceneCtx, sc: Extract<Scene, { kind: 'accolade
 function quote({ st, s, dur }: SceneCtx, sc: Extract<Scene, { kind: 'quote' }>) {
   const f = frame(st);
   const env = envelope(s, dur, 0.15, 0.3);
+  // shrink long quotes until they fit about half the picture, stars above, critic below
+  let o = { size: (st.portrait ? 5.8 : 5.6) * st.u, font: BODY, weight: 700 };
+  let lines = wrap(st, `“${sc.quote}”`, f.maxW * 0.9, o);
+  for (let i = 0; i < 6 && lines.length * o.size * 1.35 > (f.bottom - f.top) * 0.5; i++) {
+    o = { ...o, size: o.size * 0.9 };
+    lines = wrap(st, `“${sc.quote}”`, f.maxW * 0.9, o);
+  }
+  const lh = o.size * 1.35;
+  const top = f.mid - ((lines.length - 1) / 2) * lh;
   for (let i = 0; i < 5; i++) {
     const k = outBack(seg(s, 0.1 + i * 0.1, 0.4 + i * 0.1));
     if (k <= 0) continue;
     const x = st.w / 2 + (i - 2) * 6 * st.u;
-    scaled(st, x, f.mid - 17 * st.u, k, () => text(st, '★', x, f.mid - 17 * st.u, { size: 5 * st.u, font: BODY, color: st.pal.accent, alpha: env }));
+    const y = top - lh / 2 - 6 * st.u;
+    scaled(st, x, y, k, () => text(st, '★', x, y, { size: 5 * st.u, font: BODY, color: st.pal.accent, alpha: env }));
   }
-  const o = { size: (st.portrait ? 5.8 : 5.6) * st.u, font: BODY, weight: 700 };
-  const lines = wrap(st, `“${sc.quote}”`, f.maxW * 0.9, o).slice(0, 5);
-  lines.forEach((l, i) => text(st, l, st.w / 2, f.mid + (i - (lines.length - 1) / 2) * o.size * 1.35, { ...o, alpha: env * seg(s, 0.6 + i * 0.12, 1.0 + i * 0.12) }));
-  kicker(st, [sc.name, sc.role].filter(Boolean).join(', '), f.mid + (lines.length / 2) * o.size * 1.35 + 7 * st.u, env * seg(s, 1.3, 1.7));
+  lines.forEach((l, i) => text(st, l, st.w / 2, top + i * lh, { ...o, alpha: env * seg(s, 0.6 + i * 0.12, 1.0 + i * 0.12) }));
+  kicker(st, [sc.name, sc.role].filter(Boolean).join(', '), top + (lines.length - 1) * lh + lh / 2 + 6 * st.u, env * seg(s, 1.3, 1.7));
 }
 
 function title({ st, s }: SceneCtx, sc: Extract<Scene, { kind: 'title' }>) {
   const f = frame(st);
+  const im = st.img(sc.photo);
+  const lay = titleLayout(st, f.mid, !!im);
+  const cx = lay.cx;
+  const maxW = lay.photo && lay.maxW < 1 ? st.w * lay.maxW * 0.9 : f.maxW;
+  const mid = f.mid + lay.dy;
+  if (im && lay.photo) {
+    const { x, y, w, h } = lay.photo;
+    const pp = outCubic(seg(s, 0.1, 0.8));
+    const { ctx } = st;
+    ctx.save();
+    ctx.globalAlpha = pp;
+    ctx.fillStyle = st.pal.accent;
+    const off = 1.4 * st.u * pp;
+    ctx.fillRect(x + off, y + off, w, h);
+    roundRect(ctx, x, y + (1 - pp) * 3 * st.u, w, h, 0);
+    ctx.clip();
+    cover(ctx, im, x, y + (1 - pp) * 3 * st.u, w, h);
+    ctx.restore();
+  }
   const fin = seg(s, 0, 0.4);
-  kicker(st, 'Now starring', f.mid - (sc.last ? 22 : 14) * st.u, fin, st.pal.accent);
-  const size = (st.portrait ? 15 : 17) * st.u;
+  text(st, 'Now starring', cx, mid - (sc.last ? 22 : 14) * st.u, { size: 3.2 * st.u, font: MONO, track: 0.28, upper: true, alpha: fin, color: st.pal.accent, maxW });
+  const size = (st.portrait ? 15 : lay.photo && lay.maxW < 1 ? 14 : 17) * st.u;
   const rise = (x: number) => (1 - outCubic(x)) * 6 * st.u;
   const p1 = seg(s, 0.3, 0.9);
-  text(st, sc.first.toUpperCase(), st.w / 2, f.mid - (sc.last ? 7 : 0) * st.u + rise(p1), { size, font: DISPLAY, maxW: f.maxW, alpha: p1 });
+  text(st, sc.first.toUpperCase(), cx, mid - (sc.last ? 7 : 0) * st.u + rise(p1), { size, font: DISPLAY, maxW, alpha: p1 });
   if (sc.last) {
     const p2 = seg(s, 0.55, 1.15);
-    text(st, sc.last.toUpperCase(), st.w / 2, f.mid + 9 * st.u + rise(p2), { size, font: DISPLAY, maxW: f.maxW, alpha: p2, color: st.pal.accent });
+    text(st, sc.last.toUpperCase(), cx, mid + 9 * st.u + rise(p2), { size, font: DISPLAY, maxW, alpha: p2, color: st.pal.accent });
   }
-  const base = f.mid + (sc.last ? 22 : 13) * st.u;
-  if (sc.role) text(st, sc.role, st.w / 2, base, { size: 4 * st.u, font: BODY, weight: 700, maxW: f.maxW, alpha: seg(s, 1.3, 1.7) });
+  const base = mid + (sc.last ? 22 : 13) * st.u;
+  if (sc.role) text(st, sc.role, cx, base, { size: 4 * st.u, font: BODY, weight: 700, maxW, alpha: seg(s, 1.3, 1.7) });
   const pu = seg(s, 1.9, 2.4);
-  const w = text(st, sc.url, st.w / 2, base + 8 * st.u, { size: 3.6 * st.u, font: MONO, color: st.pal.fg, alpha: pu, maxW: f.maxW }).w;
+  const w = text(st, sc.url, cx, base + 8 * st.u, { size: 3.6 * st.u, font: MONO, color: st.pal.fg, alpha: pu, maxW }).w;
   st.ctx.save();
   st.ctx.fillStyle = st.pal.accent;
   st.ctx.globalAlpha = pu;
-  st.ctx.fillRect(st.w / 2 - (w / 2) * outCubic(pu), base + 11 * st.u, w * outCubic(pu), 0.45 * st.u);
+  st.ctx.fillRect(cx - (w / 2) * outCubic(pu), base + 11 * st.u, w * outCubic(pu), 0.45 * st.u);
   st.ctx.restore();
 }
 

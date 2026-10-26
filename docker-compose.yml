@@ -1,7 +1,8 @@
 # Self-hosted Starring: app + Postgres.
 #   cp .env.example .env   # set BETTER_AUTH_SECRET and BETTER_AUTH_URL
 # Optional features are switched on in .env too: SMTP, Plausible, and CV import with AI
-# (ANTHROPIC_API_KEY or OPENAI_API_KEY; see docs/self-hosting.md#cv-import-ai).
+# (ANTHROPIC_API_KEY or OPENAI_API_KEY; see docs/self-hosting.md#cv-import-ai), and photo
+# uploads (STORAGE=local keeps them in the uploads volume below; see #uploads-storage).
 #   docker compose up -d
 services:
   app:
@@ -21,6 +22,8 @@ services:
     volumes:
       # optional: profiles kept as YAML files alongside DB profiles
       - ./profiles:/app/profiles:ro
+      # uploaded photos when STORAGE=local
+      - starring-uploads:/app/data/uploads
 
   db:
     image: postgres:17-alpine
@@ -39,3 +42,4 @@ services:
 
 volumes:
   starring-db:
+  starring-uploads:

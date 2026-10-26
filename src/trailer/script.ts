@@ -15,7 +15,7 @@ export type Scene =
   | { kind: 'cameos'; items: { repo: string; what: string; logo?: string; stars?: number }[] }
   | { kind: 'accolade'; title: string; by?: string; year?: number; talk?: boolean }
   | { kind: 'quote'; quote: string; name: string; role?: string }
-  | { kind: 'title'; first: string; last: string; role: string; url: string }
+  | { kind: 'title'; first: string; last: string; role: string; url: string; photo?: string }
   /** The end card: Starring's mark and where to make your own. */
   | { kind: 'outro'; site: string };
 
@@ -71,7 +71,7 @@ export function buildScript(p: Profile, url: string, site = 'starring.dev'): Sce
   if (quote) out.push({ kind: 'quote', quote: clip(quote.quote, 180), name: clip(quote.name, 40), role: [quote.role, quote.company].filter(Boolean).join(', ') || undefined });
 
   const [first, ...rest] = (me.name || p.handle).trim().split(/\s+/);
-  out.push({ kind: 'title', first, last: rest.join(' '), role: clip(me.role || '', 60), url: url.replace(/^https?:\/\//, '').replace(/\/$/, '') });
+  out.push({ kind: 'title', first, last: rest.join(' '), role: clip(me.role || '', 60), url: url.replace(/^https?:\/\//, '').replace(/\/$/, ''), ...(me.photo && { photo: me.photo }) });
   out.push({ kind: 'outro', site: site.replace(/^https?:\/\//, '').replace(/\/$/, '') });
   return out;
 }

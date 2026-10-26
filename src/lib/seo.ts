@@ -36,7 +36,7 @@ export const profileJsonLd = (p: Profile, url: string, image: string) => {
       jobTitle: me.role,
       description: me.tagline || undefined,
       url,
-      image,
+      image: me.photo || image,
       ...(me.location && { address: { '@type': 'PostalAddress', addressLocality: me.location } }),
       sameAs: Object.values(me.links ?? {}).filter(isUrl),
       ...(skills.length && { knowsAbout: skills }),

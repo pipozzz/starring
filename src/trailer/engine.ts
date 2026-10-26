@@ -220,6 +220,31 @@ export function lockup(st: Stage, cy: number, h: number, o: { tile: string; star
   return { left: x0, right: x0 + total, top: cy - h / 2, bottom: cy + h / 2 };
 }
 
+/** Draws `im` filling the box (cropped, centred) — like CSS object-fit: cover. */
+export function cover(ctx: CanvasRenderingContext2D, im: HTMLImageElement, x: number, y: number, w: number, h: number) {
+  const r = w / h;
+  const ir = im.naturalWidth / im.naturalHeight;
+  const sw = ir > r ? im.naturalHeight * r : im.naturalWidth;
+  const sh = ir > r ? im.naturalHeight : im.naturalWidth / r;
+  ctx.drawImage(im, (im.naturalWidth - sw) / 2, (im.naturalHeight - sh) / 2, sw, sh, x, y, w, h);
+}
+
+/**
+ * Where the title card puts the portrait and how far the text moves: beside the text on wide
+ * formats, above it on square and tall ones. `null` when there's no photo.
+ */
+export function titleLayout(st: Stage, mid: number, hasPhoto: boolean) {
+  if (!hasPhoto) return { photo: null, cx: st.w / 2, dy: 0, maxW: 1 };
+  if (!st.portrait && st.w / st.h > 1.3) {
+    const h = 52 * st.u;
+    return { photo: { x: st.w * 0.24 - (h * 0.8) / 2, y: mid - h / 2, w: h * 0.8, h }, cx: st.w * 0.62, dy: 0, maxW: 0.55 };
+  }
+  const h = (st.portrait ? 34 : 24) * st.u;
+  const dy = h * 0.55;
+  const cy = mid - 22 * st.u + dy - 5 * st.u - h / 2;
+  return { photo: { x: st.w / 2 - (h * 0.8) / 2, y: cy - h / 2, w: h * 0.8, h }, cx: st.w / 2, dy, maxW: 1 };
+}
+
 export const compactNumber = (n: number) => (n >= 10_000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(n));
 
 // ---------- the frame loop ----------
@@ -247,7 +272,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, w: number, h: number, t
 
 /** Loads the scenes' images (CORS-enabled, so the canvas stays exportable). */
 export function preloadImages(scenes: Scene[]): Promise<Map<string, HTMLImageElement>> {
-  const urls = scenes.flatMap((x) => (x.kind === 'cameos' ? x.items.map((i) => i.logo).filter(Boolean) : [])) as string[];
+  const urls = scenes.flatMap((x) => (x.kind === 'cameos' ? x.items.map((i) => i.logo) : x.kind === 'title' ? [x.photo] : [])).filter(Boolean) as string[];
   const map = new Map<string, HTMLImageElement>();
   return Promise.all(
     [...new Set(urls)].map(

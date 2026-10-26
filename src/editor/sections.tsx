@@ -4,6 +4,7 @@ import { resolveSnippet } from '../lib/plausible';
 import { link } from '../lib/url';
 import { DEFAULT_THEME, THEMES, getTheme } from '../themes';
 import ListEditor from './ListEditor';
+import PhotoField from './PhotoField';
 import { Area, Chips, Combo, Num, Segmented, Text, Toggle } from './fields';
 
 export interface SectionProps {
@@ -11,13 +12,15 @@ export interface SectionProps {
   up: (patch: Partial<Profile>) => void;
   issues: Issues;
   notify: (msg: string, undo?: boolean) => void;
+  /** Signed in on an instance that stores uploads. */
+  canUpload?: boolean;
 }
 
 const has = (issues: Issues, prefix: string) => Object.keys(issues).some((k) => k.startsWith(prefix));
 
 const LINK_KEYS = ['github', 'gitlab', 'linkedin', 'website', 'x', 'email'];
 
-export function ProfileSection({ p, up, issues }: SectionProps) {
+export function ProfileSection({ p, up, issues, notify, canUpload = false }: SectionProps) {
   const me = p.profile;
   const set = (patch: Partial<Profile['profile']>) => up({ profile: { ...me, ...patch } });
   const links = me.links ?? {};
@@ -27,6 +30,7 @@ export function ProfileSection({ p, up, issues }: SectionProps) {
       <div className="ed-grid">
         <Text label="Name" value={me.name} onChange={(name) => set({ name })} error={issues['profile.name']} hint="First word goes white, the rest gets the accent" wide />
         <Text label="Role" value={me.role} onChange={(role) => set({ role })} error={issues['profile.role']} wide />
+        <PhotoField value={me.photo} onChange={(photo) => set({ photo })} canUpload={canUpload} error={issues['profile.photo']} notify={notify} />
         <Area label="Tagline" value={me.tagline} onChange={(tagline) => set({ tagline })} max={120} placeholder="One line people remember." wide />
         <Text label="Location" value={me.location} onChange={(location) => set({ location })} placeholder="City, Country" />
         <Text

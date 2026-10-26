@@ -4,7 +4,7 @@
 
 import type { Scene } from '../script';
 import {
-  clamp, compactNumber, envelope, hash, heatGeometry, lerp, lockup, measure, outCubic, scaled, seg, text, typed, wrap,
+  clamp, compactNumber, cover, envelope, hash, heatGeometry, lerp, lockup, titleLayout, measure, outCubic, scaled, seg, text, typed, wrap,
   type Genre, type SceneCtx, type Stage,
 } from '../engine';
 
@@ -229,12 +229,31 @@ function quote({ st, s, dur }: SceneCtx, sc: Extract<Scene, { kind: 'quote' }>) 
 }
 
 function title({ st, s }: SceneCtx, sc: Extract<Scene, { kind: 'title' }>) {
+  const im = st.img(sc.photo);
+  const lay = titleLayout(st, st.h / 2, !!im);
+  const cx = lay.cx;
+  const maxW = lay.photo && lay.maxW < 1 ? st.w * lay.maxW * 0.9 : st.w * 0.86;
+  const mid = st.h / 2 + lay.dy;
+  if (im && lay.photo) {
+    // a black-and-white still, slowly developing
+    const { x, y, w, h } = lay.photo;
+    const { ctx } = st;
+    ctx.save();
+    ctx.globalAlpha = seg(s, 0.2, 1.8);
+    ctx.filter = 'grayscale(1) contrast(1.2) brightness(0.95)';
+    cover(ctx, im, x, y, w, h);
+    ctx.filter = 'none';
+    ctx.strokeStyle = st.pal.fg;
+    ctx.lineWidth = 0.25 * st.u;
+    ctx.strokeRect(x - 1.2 * st.u, y - 1.2 * st.u, w + 2.4 * st.u, h + 2.4 * st.u);
+    ctx.restore();
+  }
   const fin = seg(s, 0, FADE * 1.6);
-  serif(st, 'Starring', st.h / 2 - 17 * st.u, 6.5 * st.u, fin, { italic: true, color: st.pal.muted });
+  text(st, 'Starring', cx, mid - 17 * st.u, { size: 6.5 * st.u, font: SERIF, italic: true, alpha: fin, color: st.pal.muted, maxW });
   const name = [sc.first, sc.last].filter(Boolean).join(' ');
-  serif(st, name, st.h / 2 + 0.5 * st.u, (st.portrait ? 13 : 15) * st.u, seg(s, 0.6, 1.8), { maxW: st.w * 0.86 });
-  if (sc.role) typewriter(st, sc.role, st.w / 2, st.h / 2 + 14 * st.u, s - 1.8, { size: 4 * st.u, color: st.pal.muted, maxW: st.w * 0.86 });
-  text(st, sc.url, st.w / 2, st.h / 2 + 24 * st.u, { size: 3.6 * st.u, font: MONO, track: 0.08, alpha: seg(s, 3.0, 3.6), maxW: st.w * 0.86 });
+  text(st, name, cx, mid + 0.5 * st.u, { size: (st.portrait ? 13 : lay.photo && lay.maxW < 1 ? 11 : 15) * st.u, font: SERIF, alpha: seg(s, 0.6, 1.8), maxW });
+  if (sc.role) typewriter(st, sc.role, cx, mid + 14 * st.u, s - 1.8, { size: 4 * st.u, color: st.pal.muted, maxW });
+  text(st, sc.url, cx, mid + 24 * st.u, { size: 3.6 * st.u, font: MONO, track: 0.08, alpha: seg(s, 3.0, 3.6), maxW });
 }
 
 function outro({ st, s, dur }: SceneCtx, sc: Extract<Scene, { kind: 'outro' }>) {
