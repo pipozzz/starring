@@ -209,6 +209,8 @@ It counts *your* commits in local repos, including client work and a self-hosted
 - [x] Server mode: sign up (email, GitHub, GitLab), claim a handle, autosave to Postgres, publish
 - [x] Hosted instance at starring.dev, with a private beta, invites, moderation and owner stats
 - [x] Custom domains for profiles (`you.dev` → your stage), verified by DNS, with an on-demand TLS check for the proxy
+- [x] Career trailer: a 30-second film cut from the profile (Blockbuster or Noir), exported as MP4 in the browser for LinkedIn, Stories and Reels
+- [x] Printable one-page CV with a QR code back to the stage
 - [ ] Translations
 
 ### Architecture

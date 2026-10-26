@@ -68,6 +68,10 @@ export default function ShareDialog({ p, url, poster, onClose }: Props) {
             <button type="button" className="ed-link" onClick={() => copy('featured', url)}>{copied === 'featured' ? 'Copied ✓' : 'Copy link'}</button>
           </li>
           <li>
+            <b>Post your trailer.</b> A 30-second film of your career, cut from this stage — download it as an MP4 for a LinkedIn post, Stories or Reels. Video gets far more reach than a link.{' '}
+            <a className="ed-link" href={`${url.replace(/\/?$/, '/')}trailer/`} target="_blank" rel="noreferrer">Make the video ↗</a>
+          </li>
+          <li>
             <b>Send it as a CV.</b> Job forms still want a PDF: your stage prints as a one-page CV that links back here.{' '}
             <a className="ed-link" href={`${url.replace(/\/?$/, '/')}cv/`} target="_blank" rel="noreferrer">Open the CV ↗</a>
           </li>

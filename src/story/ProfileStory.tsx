@@ -68,6 +68,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
           <a href={at()}>Starring</a>
           <span>{me.location}</span>
           {me.available && <span className="tag solid">Available for work</span>}
+          {!preview && <a className="hero-trailer" href={site ? '/trailer/' : link(`${p.handle}/trailer/`)}>▶ Watch the trailer</a>}
         </div>
         <h1 className="display hero-name">
           <span className="line">{first}</span>
@@ -353,6 +354,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
         <ul className="mono">
           {links.map(([k, v]) => <li key={k}><a href={v}>{k} ↗</a></li>)}
           {/* on a custom domain the stage is the site root, so the CV is /cv/ there */}
+          <li><a href={site ? '/trailer/' : link(`${p.handle}/trailer/`)}>Trailer ▶</a></li>
           <li><a href={site ? '/cv/' : link(`${p.handle}/cv/`)}>CV / PDF ↓</a></li>
         </ul>
         <p className="mono muted">Made with Starring — open source</p>

@@ -1,0 +1,38 @@
+/* The trailer player. Uses the stage theme's tokens for its chrome; the video itself is the genre's. */
+.tr { display: grid; gap: 14px; }
+.tr-screen { position: relative; margin: 0 auto; background: #000; width: 100%; box-shadow: 0 24px 80px rgb(0 0 0 / .45); }
+.tr-screen canvas { display: block; width: 100%; height: 100%; cursor: pointer; }
+.tr-landscape { aspect-ratio: 16 / 9; }
+.tr-square { aspect-ratio: 1; max-width: min(100%, 68vh); }
+.tr-portrait { aspect-ratio: 9 / 16; max-width: min(100%, 44vh); }
+.tr-big-play {
+  position: absolute; inset: 0; margin: auto; width: 76px; height: 76px; border-radius: 50%;
+  border: 0; background: var(--accent); color: var(--accent-ink); font-size: 28px; cursor: pointer;
+  box-shadow: 0 8px 30px rgb(0 0 0 / .4);
+}
+.tr-big-play:focus-visible, .tr-btn:focus-visible, .tr-seek:focus-visible, .tr-group label:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
+.tr-bar { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
+.tr-seek { width: 100%; accent-color: var(--accent); }
+.tr-time { font: 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tr-btn {
+  font: 600 14px var(--body); padding: 10px 16px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; min-height: 44px;
+}
+.tr-btn:hover:not(:disabled) { border-color: var(--accent); }
+.tr-btn:disabled { opacity: .5; cursor: default; }
+.tr-primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.tr-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
+.tr-group { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; min-width: 0; }
+.tr-group legend { font: 12px var(--mono); text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-bottom: 8px; padding: 0; }
+.tr-group label { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; padding: 12px 14px; border: 1px solid var(--line); cursor: pointer; }
+.tr-group label.on { border-color: var(--accent); }
+.tr-group input { accent-color: var(--accent); grid-row: span 2; }
+.tr-group b { font: 700 15px var(--body); }
+.tr-group span { color: var(--muted); font-size: 13px; }
+.tr-export { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 8px; }
+.tr-progress { flex: 1; min-width: 160px; height: 10px; background: var(--line); }
+.tr-progress span { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+.tr-hint { flex-basis: 100%; color: var(--muted); font-size: 13px; }
+.tr-error { flex-basis: 100%; color: #ff6b6b; font-size: 14px; }
+@media (max-width: 720px) {
+  .tr-controls { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,62 @@
+---
+// The career trailer: a short film cut from the profile, played in the browser and
+// downloadable as an MP4 for LinkedIn, Stories and the rest. ?genre=noir picks the cut.
+import Layout from '../../components/Layout.astro';
+import Player from '../../trailer/Player';
+import { buildScript, transcript } from '../../trailer/script';
+import { SERVER_MODE, store, type Profile } from '../../lib/profiles';
+import { getTheme } from '../../themes';
+import { link, pageLink } from '../../lib/url';
+import { publicBase } from '../../lib/site';
+
+export async function getStaticPaths() {
+  return (await store.list()).map((p) => ({ params: { handle: p.handle }, props: { p } }));
+}
+
+let p = (Astro.props as { p?: Profile }).p;
+if (SERVER_MODE) {
+  p = await store.get(Astro.params.handle!);
+  if (!p) return new Response(null, { status: 404 });
+  Astro.response.headers.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=600');
+}
+const profile = p!;
+const theme = getTheme(profile.theme);
+const custom = Astro.locals.customDomain;
+const stage = custom ? `https://${custom}/` : new URL(pageLink(profile.handle), publicBase(Astro.site, Astro.url)).href;
+const genre = SERVER_MODE ? Astro.url.searchParams.get('genre') ?? undefined : undefined;
+const lines = transcript(buildScript(profile, stage));
+const image = new URL(link(`og/${profile.handle}.png`), publicBase(Astro.site, Astro.url)).href;
+---
+<Layout
+  title={`${profile.profile.name} — the trailer · Starring`}
+  description={`A 30-second trailer of ${profile.profile.name}'s developer career. ${lines.slice(0, 3).join(' ')}`}
+  theme={profile.theme}
+  fonts={[profile.theme]}
+  bare
+  image={image}
+  canonical={new URL('trailer/', stage).href}
+>
+  <main class="trailer-page">
+    <nav class="top mono">
+      <a href={stage}>← {profile.profile.name}'s stage</a>
+      <span class="muted">Starring presents</span>
+    </nav>
+    <h1 class="display">The trailer</h1>
+    <Player client:load p={profile} url={stage} theme={{ accent: theme.tokens.accent, scheme: theme.scheme }} genre={genre} />
+    <section class="script" aria-labelledby="script-title">
+      <h2 id="script-title" class="mono">Transcript</h2>
+      <ol>{lines.map((l) => <li>{l}</li>)}</ol>
+    </section>
+  </main>
+</Layout>
+
+<style>
+  .trailer-page { max-width: 1180px; margin: 0 auto; padding: 24px 16px 80px; display: grid; gap: 20px; }
+  .top { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+  .top a { color: var(--fg); text-decoration: none; }
+  .top a:hover { color: var(--accent); }
+  h1 { font-size: clamp(40px, 7vw, 88px); line-height: .95; text-transform: uppercase; }
+  .script { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 20px; }
+  .script h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-bottom: 10px; font-weight: 400; }
+  .script ol { padding-left: 30px; display: grid; gap: 6px; color: var(--muted); max-width: 70ch; }
+</style>

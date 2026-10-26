@@ -15,7 +15,7 @@ const PORT = 4399;
 const BASE = `http://localhost:${PORT}`;
 const AXE = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
 const THEMES = readdirSync(join('src', 'themes')).filter((d) => statSync(join('src', 'themes', d)).isDirectory());
-const PAGES = ['/', '/explore/', '/themes/', '/terms/', '/privacy/', '/edit/', '/nova/card/', '/nova/cv/', ...THEMES.map((t) => `/nova/?theme=${t}`)];
+const PAGES = ['/', '/explore/', '/themes/', '/terms/', '/privacy/', '/edit/', '/nova/card/', '/nova/cv/', '/nova/trailer/', ...THEMES.map((t) => `/nova/?theme=${t}`)];
 
 const chromePath = [
   process.env.CHROME_PATH,
