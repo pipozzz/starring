@@ -34,7 +34,7 @@
     "@resvg/resvg-js": "^2.6.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "astro": "^7.4.1",
+    "astro": "^7.4.2",
     "aws4fetch": "1.0.20",
     "better-auth": "^1.7.12",
     "drizzle-orm": "^0.45.4",
