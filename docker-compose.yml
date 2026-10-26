@@ -1,5 +1,7 @@
 # Self-hosted Starring: app + Postgres.
 #   cp .env.example .env   # set BETTER_AUTH_SECRET and BETTER_AUTH_URL
+# Optional features are switched on in .env too: SMTP, Plausible, and CV import with AI
+# (ANTHROPIC_API_KEY or OPENAI_API_KEY; see docs/self-hosting.md#cv-import-ai).
 #   docker compose up -d
 services:
   app:

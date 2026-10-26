@@ -148,7 +148,7 @@ DATABASE_URL=postgres://… BETTER_AUTH_URL=https://… BETTER_AUTH_SECRET=… n
 | `TRUST_PROXY` | `false` (`true` in the Dokploy compose) | Use `X-Forwarded-For` for the visitor's IP (rate limits on reports and access requests) even when the proxy connects from a public address. It's always trusted from private addresses (a proxy on the same host or network). Leave it off if the app port is reachable directly. |
 | `CUSTOM_DOMAINS` | `false` | `true` lets owners connect their own domain (Account → Custom domain), verified by a DNS TXT record. TLS needs a proxy that can issue certificates on demand. See [Custom domains](#custom-domains). |
 | `NOINDEX` | `false` | `true` adds `noindex` to every page and makes `robots.txt` block everything. Use it for a demo or mirror (e.g. a GitHub Pages copy) of a site that lives elsewhere. |
-| `ANTHROPIC_API_KEY` | none | Turns on **CV import**. Signed-in users upload a PDF or Word CV, or paste any text, and Claude reads it into a draft: roles, clients, NDA projects, school, skills, certifications, awards, languages. Default model `claude-opus-5-5`. Policy declines fall back server-side to Anthropic's recommended model. |
+| `ANTHROPIC_API_KEY` | none | Turns on **CV import**. Signed-in users upload a PDF or Word CV, or paste any text, and Claude reads it into a draft: roles, clients, NDA projects, school, skills, certifications, awards, languages. Default model `claude-opus-5-5`. Policy declines fall back server-side to Anthropic's recommended model. See [CV import (AI)](#cv-import-ai). |
 | `OPENAI_API_KEY` | none | The same CV import through OpenAI's Responses API (default model `gpt-5.5`, override with `OPENAI_MODEL`). |
 | `CV_IMPORT_PROVIDER` | the provider whose key is set (`anthropic` if both) | `anthropic` or `openai`. |
 | `CV_IMPORT_MODEL` | provider default | A different model for CV import, e.g. a cheaper one. |
@@ -226,6 +226,52 @@ https:// {
 **Traefik (Dokploy, Nomploy)** has no on-demand certificates. For a handful of custom domains, add each one as an extra domain on the `app` service (port 4321, HTTPS on), and the app routes it by host. For many domains, put Caddy in front as shown above.
 
 Set `TRUST_PROXY=true` when a proxy on another host forwards the traffic. The app reads the custom host from `X-Forwarded-Host` or `Host`.
+
+## CV import (AI)
+
+Most people's career lives in a CV, not in a file Starring can read. With an AI key, signed-in users can **upload a PDF or Word CV, or paste any text** in the editor, such as their LinkedIn *About* and experience or a bio. They get a filled draft in about 30 seconds: roles, clients, NDA projects, school, skills, certifications, awards, languages and hobbies. They review everything before it's public, and Undo works.
+
+The feature is **off until you set one key**:
+
+```env
+ANTHROPIC_API_KEY=sk-ant-…    # Claude (default model claude-opus-5-5)
+# or
+OPENAI_API_KEY=sk-…           # OpenAI Responses API (default model gpt-5.5)
+
+# optional
+CV_IMPORT_PROVIDER=anthropic  # which one, when both keys are set (default: anthropic)
+CV_IMPORT_MODEL=              # another model, e.g. a cheaper one
+OPENAI_MODEL=                 # same, OpenAI only
+CV_IMPORT_DAILY_LIMIT=200     # imports per day for the whole instance
+```
+
+With Docker Compose, put these in `.env`. On Dokploy or Nomploy, add them in the service's **Environment** tab; `docker-compose.dokploy.yml` already passes them through. Then redeploy.
+
+**Where users find it:**
+- in the first-run onboarding, as **Your CV · fastest**, above GitHub and LinkedIn;
+- in the editor, under **Start from → Your CV or any text…**, where they choose *Add to my draft* or *Start fresh*.
+
+`GET /api/me` reports `features.cvImport: "anthropic" | "openai" | null`, so you can check it's on.
+
+**What it costs:**
+- A typical one- or two-page CV is a few thousand tokens in and out: **a few cents per import** with the default models, and less with `CV_IMPORT_MODEL`.
+- Spending is capped two ways: **10 imports per user per day**, and `CV_IMPORT_DAILY_LIMIT` for the whole instance (default 200).
+- Only signed-in users can import, so with `ALLOW_SIGNUP=false` only people you invited.
+
+**How it handles the document:**
+- **Inputs:** PDF (checked to really be a PDF, max 10 MB), Word `.docx` (its text is extracted on the server), `.txt`/`.md`, or pasted text (max 100,000 characters).
+- **Storage:** none. The document goes to the provider only for this extraction, and the draft goes straight back to the user's editor.
+- **Extraction rules:** the model gets one strict JSON schema and instructions to use only what the document says, without inventing employers, dates, numbers or links. The document is treated as data, not as instructions.
+- **Server-side check:** the server cleans the result before the editor sees it. It clips lengths, checks links, emails and years, and drops anything invalid.
+- **Refusals:** with Claude, a policy decline is retried server-side on Anthropic's recommended fallback model (`fallbacks: "default"`).
+- **Privacy notice:** while a key is set, `/privacy` names the provider as a processor.
+
+**Trying it, and when it doesn't work:**
+- Sign in, open `/edit`, choose **Start from → Your CV or any text…**, and paste a few lines about yourself. A draft should appear within a minute.
+- *"CV import is not enabled"*: no key reached the app. Check the container env and redeploy. `CV_IMPORT_PROVIDER=openai` without `OPENAI_API_KEY` also turns it off.
+- *"Couldn't reach the AI right now"*: the provider returned an error. The server log has a `[cv-import]` line with the status, usually a wrong key or no credit.
+- *"That's 10 imports today"* / *"busy today"*: one of the daily limits.
+- A scanned PDF (an image without a text layer) still works with Claude, which reads pages as images. If it doesn't, paste the text.
 
 ## Terms, privacy and moderation
 

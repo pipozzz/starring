@@ -35,6 +35,8 @@ services:
       # the app is only reachable through the platform's proxy, so X-Forwarded-For is trustworthy
       TRUST_PROXY: ${TRUST_PROXY:-true}
       CUSTOM_DOMAINS: ${CUSTOM_DOMAINS:-false}
+      # CV import with AI: set ONE key to turn it on (off when both are empty).
+      # Setup, cost, privacy and limits: docs/self-hosting.md#cv-import-ai
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       CV_IMPORT_PROVIDER: ${CV_IMPORT_PROVIDER:-}
