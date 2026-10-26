@@ -24,7 +24,9 @@ const theme = getTheme(profile.theme);
 const custom = Astro.locals.customDomain;
 const stage = custom ? `https://${custom}/` : new URL(pageLink(profile.handle), publicBase(Astro.site, Astro.url)).href;
 const genre = SERVER_MODE ? Astro.url.searchParams.get('genre') ?? undefined : undefined;
-const lines = transcript(buildScript(profile, stage));
+const site = publicBase(Astro.site, Astro.url).host;
+const lines = transcript(buildScript(profile, stage, site));
+const trailerUrl = new URL('trailer/', stage).href;
 const image = new URL(link(`og/${profile.handle}.png`), publicBase(Astro.site, Astro.url)).href;
 ---
 <Layout
@@ -34,7 +36,7 @@ const image = new URL(link(`og/${profile.handle}.png`), publicBase(Astro.site, A
   fonts={[profile.theme]}
   bare
   image={image}
-  canonical={new URL('trailer/', stage).href}
+  canonical={trailerUrl}
 >
   <main class="trailer-page">
     <nav class="top mono">
@@ -42,7 +44,7 @@ const image = new URL(link(`og/${profile.handle}.png`), publicBase(Astro.site, A
       <span class="muted">Starring presents</span>
     </nav>
     <h1 class="display">The trailer</h1>
-    <Player client:load p={profile} url={stage} theme={{ accent: theme.tokens.accent, scheme: theme.scheme }} genre={genre} />
+    <Player client:load p={profile} url={stage} trailerUrl={trailerUrl} site={site} theme={{ accent: theme.tokens.accent, scheme: theme.scheme }} genre={genre} />
     <section class="script" aria-labelledby="script-title">
       <h2 id="script-title" class="mono">Transcript</h2>
       <ol>{lines.map((l) => <li>{l}</li>)}</ol>

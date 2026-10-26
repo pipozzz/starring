@@ -4,7 +4,7 @@
 
 import type { Scene } from '../script';
 import {
-  clamp, compactNumber, envelope, hash, heatGeometry, lerp, measure, outCubic, scaled, seg, text, typed, wrap,
+  clamp, compactNumber, envelope, hash, heatGeometry, lerp, lockup, measure, outCubic, scaled, seg, text, typed, wrap,
   type Genre, type SceneCtx, type Stage,
 } from '../engine';
 
@@ -237,7 +237,19 @@ function title({ st, s }: SceneCtx, sc: Extract<Scene, { kind: 'title' }>) {
   text(st, sc.url, st.w / 2, st.h / 2 + 24 * st.u, { size: 3.6 * st.u, font: MONO, track: 0.08, alpha: seg(s, 3.0, 3.6), maxW: st.w * 0.86 });
 }
 
-const SCENES: { [K in Scene['kind']]: (c: SceneCtx, sc: Extract<Scene, { kind: K }>) => void } = { open, stat, heat, clients, nda, work, cameos, accolade, quote, title };
+function outro({ st, s, dur }: SceneCtx, sc: Extract<Scene, { kind: 'outro' }>) {
+  const env = envelope(s, dur, FADE, 0);
+  const h = (st.portrait ? 12 : 11) * st.u;
+  const cy = st.h / 2 - 5 * st.u;
+  // the brand in black and white: a bone tile, an ink star
+  lockup(st, cy, h, {
+    tile: st.pal.fg, star: st.pal.bg, word: st.pal.fg, font: "'Space Grotesk', system-ui, sans-serif", alpha: env,
+    pop: outCubic(seg(s, 0.2, 1.0)), spin: outCubic(seg(s, 0.4, 1.3)), reveal: seg(s, 0.9, 1.6),
+  });
+  typewriter(st, `make your own → ${sc.site}`, st.w / 2, cy + h * 0.5 + 10 * st.u, s - 1.6, { size: 3.8 * st.u, alpha: env, color: st.pal.muted, maxW: st.w * 0.86 });
+}
+
+const SCENES: { [K in Scene['kind']]: (c: SceneCtx, sc: Extract<Scene, { kind: K }>) => void } = { open, stat, heat, clients, nda, work, cameos, accolade, quote, title, outro };
 
 // ---- film: grain, flicker, scratches, vignette ----
 

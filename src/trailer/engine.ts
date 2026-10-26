@@ -167,6 +167,59 @@ export function heatGeometry(st: Stage, cy: number, maxW: number, maxH: number) 
   };
 }
 
+// ---------- the Starring mark (same geometry as scripts/brand.mjs) ----------
+
+const STAR = 'M32 9Q34.6 29.4 55 32Q34.6 34.6 32 55Q29.4 34.6 9 32Q29.4 29.4 32 9Z';
+let starPath: Path2D | null = null;
+
+/**
+ * The tile mark centred on (cx, cy), `size` px wide. `pop` scales the tile (0 → 1, may
+ * overshoot); `spin` 0 → 1 turns and grows the star into place.
+ */
+export function drawMark(st: Stage, cx: number, cy: number, size: number, o: { tile: string; star: string; pop?: number; spin?: number; alpha?: number }) {
+  const { ctx } = st;
+  const pop = o.pop ?? 1;
+  const spin = o.spin ?? 1;
+  if (pop <= 0) return;
+  starPath ??= new Path2D(STAR);
+  ctx.save();
+  ctx.globalAlpha *= o.alpha ?? 1;
+  ctx.translate(cx, cy);
+  ctx.scale((size / 64) * pop, (size / 64) * pop);
+  ctx.translate(-32, -32);
+  roundRect(ctx, 2, 2, 60, 60, 15);
+  ctx.fillStyle = o.tile;
+  ctx.fill();
+  ctx.translate(32, 32);
+  ctx.rotate((1 - spin) * -Math.PI * 0.75);
+  const k = lerp(0.3, 1, spin);
+  ctx.scale(k, k);
+  ctx.translate(-32, -32);
+  ctx.fillStyle = o.star;
+  ctx.fill(starPath);
+  ctx.restore();
+}
+
+/** The mark and the lowercase wordmark side by side, centred; returns the lockup's box. */
+export function lockup(st: Stage, cy: number, h: number, o: { tile: string; star: string; word: string; pop: number; spin: number; reveal: number; alpha?: number; font: string }) {
+  const wordSize = h * 0.86;
+  const wordW = measure(st, 'starring', { size: wordSize, font: o.font, weight: 700, track: -0.03 });
+  const gap = h * 0.32;
+  const total = h + gap + wordW;
+  const x0 = st.w / 2 - total / 2;
+  drawMark(st, x0 + h / 2, cy, h, { tile: o.tile, star: o.star, pop: o.pop, spin: o.spin, alpha: o.alpha });
+  if (o.reveal > 0) {
+    const { ctx } = st;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x0 + h + gap * 0.5, cy - h, (wordW + gap) * o.reveal, h * 2);
+    ctx.clip();
+    text(st, 'starring', x0 + h + gap - (1 - o.reveal) * wordSize * 0.4, cy - h * 0.04, { size: wordSize, font: o.font, weight: 700, track: -0.03, align: 'left', color: o.word, alpha: o.alpha });
+    ctx.restore();
+  }
+  return { left: x0, right: x0 + total, top: cy - h / 2, bottom: cy + h / 2 };
+}
+
 export const compactNumber = (n: number) => (n >= 10_000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(n));
 
 // ---------- the frame loop ----------

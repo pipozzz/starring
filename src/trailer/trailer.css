@@ -22,7 +22,7 @@
 .tr-primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .tr-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
 .tr-group { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; min-width: 0; }
-.tr-group legend { font: 12px var(--mono); text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-bottom: 8px; padding: 0; }
+.tr-legend, .tr-group legend { font: 12px var(--mono); text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-bottom: 8px; padding: 0; }
 .tr-group label { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; padding: 12px 14px; border: 1px solid var(--line); cursor: pointer; }
 .tr-group label.on { border-color: var(--accent); }
 .tr-group input { accent-color: var(--accent); grid-row: span 2; }
@@ -36,3 +36,11 @@
 @media (max-width: 720px) {
   .tr-controls { grid-template-columns: 1fr; }
 }
+
+.tr-legend { margin: 0; font-weight: 400; }
+.tr-share { display: grid; gap: 10px; margin-top: 12px; padding-top: 20px; border-top: 1px solid var(--line); }
+.tr-link { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.tr-input { font: 13px var(--mono); padding: 10px 12px; min-height: 44px; background: transparent; color: var(--fg); border: 1px solid var(--line); min-width: 0; }
+.tr-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tr-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.tr-row .tr-btn { text-decoration: none; display: inline-flex; align-items: center; }

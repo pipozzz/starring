@@ -15,13 +15,17 @@ interface Props {
   p: Profile;
   /** The stage's public address, shown on the title card. */
   url: string;
+  /** This page's address, for sharing the trailer as a link. */
+  trailerUrl: string;
+  /** The Starring instance the end card points to. */
+  site: string;
   theme: { accent: string; scheme: 'dark' | 'light' };
   genre?: string;
 }
 
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-export default function Player({ p, url, theme, genre: initialGenre }: Props) {
+export default function Player({ p, url, trailerUrl, site, theme, genre: initialGenre }: Props) {
   const [genreId, setGenreId] = useState(getGenre(initialGenre).id);
   const [format, setFormat] = useState<Format>('landscape');
   const [playing, setPlaying] = useState(false);
@@ -30,13 +34,17 @@ export default function Player({ p, url, theme, genre: initialGenre }: Props) {
   const [exporting, setExporting] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [supported, setSupported] = useState<boolean | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [canShareFiles, setCanShareFiles] = useState(false);
+  /** The last video made, so Share after Download (or twice) doesn't render it again. */
+  const made = useRef<{ key: string; file: File } | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const images = useRef(new Map<string, HTMLImageElement>());
   const abort = useRef<AbortController | null>(null);
   const clock = useRef({ t: 0, last: 0 });
 
   const genre = getGenre(genreId);
-  const scenes = useMemo(() => buildScript(p, url), [p, url]);
+  const scenes = useMemo(() => buildScript(p, url, site), [p, url, site]);
   const tr = useMemo(() => makeTrailer(scenes, genre), [scenes, genre]);
   const pal = useMemo(() => genre.palette(theme), [genre, theme]);
   const img = useCallback((u?: string) => (u ? images.current.get(u) : undefined), []);
@@ -59,6 +67,12 @@ export default function Player({ p, url, theme, genre: initialGenre }: Props) {
   }, [scenes]);
 
   useEffect(() => { canExport(format).then(setSupported); }, [format]);
+  useEffect(() => {
+    // native share sheets that take files: phones, Safari, Chrome on macOS and Windows
+    try {
+      setCanShareFiles(!!navigator.canShare?.({ files: [new File([new Uint8Array(1)], 'x.mp4', { type: 'video/mp4' })] }));
+    } catch { /* not supported */ }
+  }, []);
 
   const paint = useCallback((time: number) => {
     const c = canvas.current;
@@ -101,22 +115,54 @@ export default function Player({ p, url, theme, genre: initialGenre }: Props) {
   };
   const pickGenre = (id: string) => { setGenreId(id); seek(0); setPlaying(true); };
 
-  const download = async () => {
+  const name = `${p.handle}-trailer-${genre.id}-${FORMATS[format].label.replace(':', 'x')}.mp4`;
+  const pitch = `My developer career as a 30-second trailer — including the work GitHub can't show.`;
+
+  /** Renders the MP4 (or reuses the last one for the same cut and format). */
+  const make = async (): Promise<File | null> => {
+    const key = `${genre.id}:${format}`;
+    if (made.current?.key === key) return made.current.file;
     setError('');
     setPlaying(false);
     abort.current = new AbortController();
     setExporting(0);
     try {
       const blob = await exportMp4(tr, pal, img, format, setExporting, abort.current.signal);
-      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `${p.handle}-trailer-${genre.id}-${FORMATS[format].label.replace(':', 'x')}.mp4` });
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
+      const file = new File([blob], name, { type: 'video/mp4' });
+      made.current = { key, file };
+      return file;
     } catch (e) {
       if ((e as Error).name !== 'AbortError') setError(`Couldn't make the video: ${(e as Error).message}`);
+      return null;
     } finally {
       setExporting(null);
     }
   };
+
+  const download = async () => {
+    const file = await make();
+    if (!file) return;
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(file), download: file.name });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
+  };
+
+  const shareVideo = async () => {
+    const file = await make();
+    if (!file) return;
+    try {
+      await navigator.share({ files: [file], title: `${p.profile.name} — the trailer`, text: `${pitch} ${trailerUrl}` });
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') setError(`Sharing didn't work here — download the video and post it instead.`);
+    }
+  };
+
+  const copyLink = () => navigator.clipboard.writeText(trailerUrl).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); });
+  const shareTo = [
+    { label: 'LinkedIn', href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(trailerUrl)}` },
+    { label: 'X', href: `https://x.com/intent/post?text=${encodeURIComponent(pitch)}&url=${encodeURIComponent(trailerUrl)}` },
+    { label: 'Bluesky', href: `https://bsky.app/intent/compose?text=${encodeURIComponent(`${pitch} ${trailerUrl}`)}` },
+  ];
 
   return (
     <div className="tr">
@@ -169,9 +215,16 @@ export default function Player({ p, url, theme, genre: initialGenre }: Props) {
 
       <div className="tr-export">
         {exporting === null ? (
-          <button type="button" className="tr-btn tr-primary" onClick={download} disabled={!ready || supported === false}>
-            Download MP4 · {FORMATS[format].label}
-          </button>
+          <>
+            <button type="button" className="tr-btn tr-primary" onClick={download} disabled={!ready || supported === false}>
+              Download MP4 · {FORMATS[format].label}
+            </button>
+            {canShareFiles && (
+              <button type="button" className="tr-btn" onClick={shareVideo} disabled={!ready || supported === false}>
+                Share video…
+              </button>
+            )}
+          </>
         ) : (
           <>
             <div className="tr-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(exporting * 100)} aria-label="Making the video">
@@ -187,6 +240,18 @@ export default function Player({ p, url, theme, genre: initialGenre }: Props) {
             : `Made right here in your browser, nothing is uploaded. ${Math.round(tr.total)} seconds, ${FORMATS[format].w}×${FORMATS[format].h}, silent — add music in LinkedIn, Instagram or CapCut if you like.`}
         </p>
         {error && <p className="tr-error" role="alert">{error}</p>}
+      </div>
+
+      <div className="tr-share">
+        <h2 className="tr-legend">Share the link</h2>
+        <p className="tr-hint">Anyone who opens it watches the trailer right here — no download, no app.</p>
+        <div className="tr-link">
+          <input className="tr-input" value={trailerUrl} readOnly aria-label="Link to this trailer" onFocus={(e) => e.currentTarget.select()} />
+          <button type="button" className="tr-btn" onClick={copyLink}>{copied ? 'Copied ✓' : 'Copy link'}</button>
+        </div>
+        <div className="tr-row">
+          {shareTo.map((x) => <a key={x.label} className="tr-btn" href={x.href} target="_blank" rel="noreferrer">{x.label} ↗</a>)}
+        </div>
       </div>
     </div>
   );

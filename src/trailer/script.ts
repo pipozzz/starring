@@ -15,13 +15,15 @@ export type Scene =
   | { kind: 'cameos'; items: { repo: string; what: string; logo?: string; stars?: number }[] }
   | { kind: 'accolade'; title: string; by?: string; year?: number; talk?: boolean }
   | { kind: 'quote'; quote: string; name: string; role?: string }
-  | { kind: 'title'; first: string; last: string; role: string; url: string };
+  | { kind: 'title'; first: string; last: string; role: string; url: string }
+  /** The end card: Starring's mark and where to make your own. */
+  | { kind: 'outro'; site: string };
 
 export type SceneKind = Scene['kind'];
 
 /** Seconds per scene at speed 1; genres stretch or squeeze the whole thing. */
 export const BASE_DURATION: Record<SceneKind, number> = {
-  open: 3.2, stat: 2.1, heat: 3.4, clients: 3.6, nda: 4.2, work: 3.2, cameos: 3.4, accolade: 2.8, quote: 3.8, title: 4.6,
+  open: 3.2, stat: 2.1, heat: 3.4, clients: 3.6, nda: 4.2, work: 3.2, cameos: 3.4, accolade: 2.8, quote: 3.8, title: 4.6, outro: 3,
 };
 
 const clip = (s: string, max: number) => {
@@ -29,7 +31,8 @@ const clip = (s: string, max: number) => {
   return t.length <= max ? t : `${t.slice(0, max - 1).trimEnd()}…`;
 };
 
-export function buildScript(p: Profile, url: string): Scene[] {
+/** `site` is the Starring instance the end card points to, e.g. "starring.dev". */
+export function buildScript(p: Profile, url: string, site = 'starring.dev'): Scene[] {
   const t = totals(p);
   const me = p.profile;
   const out: Scene[] = [{ kind: 'open', privateShare: t.all > 0 ? t.privateShare : 0 }];
@@ -69,6 +72,7 @@ export function buildScript(p: Profile, url: string): Scene[] {
 
   const [first, ...rest] = (me.name || p.handle).trim().split(/\s+/);
   out.push({ kind: 'title', first, last: rest.join(' '), role: clip(me.role || '', 60), url: url.replace(/^https?:\/\//, '').replace(/\/$/, '') });
+  out.push({ kind: 'outro', site: site.replace(/^https?:\/\//, '').replace(/\/$/, '') });
   return out;
 }
 
@@ -109,6 +113,7 @@ export function transcript(scenes: Scene[]): string[] {
       case 'accolade': return [`${x.talk ? 'Spoke at' : 'Winner:'} ${x.talk ? x.by : x.title}${x.talk ? `: ${x.title}` : x.by ? `, ${x.by}` : ''}.`];
       case 'quote': return [`“${x.quote}” — ${x.name}${x.role ? `, ${x.role}` : ''}.`];
       case 'title': return [`Starring ${[x.first, x.last].filter(Boolean).join(' ')}, ${x.role}. ${x.url}`];
+      case 'outro': return [`Made with Starring — make your own at ${x.site}.`];
     }
   });
 }

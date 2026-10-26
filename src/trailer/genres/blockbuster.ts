@@ -4,7 +4,7 @@
 
 import type { Scene } from '../script';
 import {
-  clamp, compactNumber, envelope, heatGeometry, lerp, measure, outBack, outCubic, outExpo, roundRect, scaled, seg, text, wrap,
+  clamp, compactNumber, envelope, heatGeometry, lerp, lockup, measure, outBack, outCubic, outExpo, roundRect, scaled, seg, text, wrap,
   type Genre, type SceneCtx, type Stage,
 } from '../engine';
 
@@ -343,6 +343,26 @@ function title({ st, s }: SceneCtx, sc: Extract<Scene, { kind: 'title' }>) {
   st.ctx.restore();
 }
 
+function outro({ st, s, dur }: SceneCtx, sc: Extract<Scene, { kind: 'outro' }>) {
+  const f = frame(st);
+  const env = envelope(s, dur, 0.2, 0);
+  const h = (st.portrait ? 13 : 12) * st.u;
+  const cy = f.mid - 5 * st.u;
+  lockup(st, cy, h, {
+    tile: st.pal.accent, star: st.pal.bg, word: st.pal.fg, font: BODY, alpha: env,
+    pop: outBack(seg(s, 0.1, 0.55)), spin: outCubic(seg(s, 0.3, 0.95)), reveal: inOutReveal(seg(s, 0.7, 1.3)),
+  });
+  text(st, 'Make your own trailer', st.w / 2, cy + h * 0.5 + 9 * st.u, { size: 4.2 * st.u, font: BODY, weight: 700, alpha: env * seg(s, 1.3, 1.7), maxW: f.maxW });
+  const pu = seg(s, 1.6, 2.1);
+  const w = text(st, sc.site, st.w / 2, cy + h * 0.5 + 16 * st.u, { size: 4 * st.u, font: MONO, color: st.pal.accent, alpha: env * pu, maxW: f.maxW }).w;
+  st.ctx.save();
+  st.ctx.fillStyle = st.pal.accent;
+  st.ctx.globalAlpha = env * pu;
+  st.ctx.fillRect(st.w / 2 - (w / 2) * outCubic(pu), cy + h * 0.5 + 19.5 * st.u, w * outCubic(pu), 0.45 * st.u);
+  st.ctx.restore();
+}
+const inOutReveal = (x: number) => (x < 0.5 ? 4 * x ** 3 : 1 - (-2 * x + 2) ** 3 / 2);
+
 /** A white flash; `x` 1 → 0 as it fades. */
 function flash(st: Stage, x: number, max = 0.8) {
   if (x <= 0) return;
@@ -353,7 +373,7 @@ function flash(st: Stage, x: number, max = 0.8) {
   st.ctx.restore();
 }
 
-const SCENES: { [K in Scene['kind']]: (c: SceneCtx, sc: Extract<Scene, { kind: K }>) => void } = { open, stat, heat, clients, nda, work, cameos, accolade, quote, title };
+const SCENES: { [K in Scene['kind']]: (c: SceneCtx, sc: Extract<Scene, { kind: K }>) => void } = { open, stat, heat, clients, nda, work, cameos, accolade, quote, title, outro };
 const FLASH_ON: Scene['kind'][] = ['stat', 'clients', 'nda', 'title'];
 
 const blockbuster: Genre = {
