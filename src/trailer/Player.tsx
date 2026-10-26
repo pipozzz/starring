@@ -8,7 +8,7 @@ import type { Profile } from '../lib/model';
 import { buildScript } from './script';
 import { drawFrame, makeTrailer, preloadImages } from './engine';
 import { GENRES, getGenre } from './genres';
-import { FORMATS, canExport, exportMp4, type Format } from './export';
+import { FORMATS, bitrateFor, canExport, exportMp4, type Format } from './export';
 import './trailer.css';
 
 interface Props {
@@ -237,7 +237,7 @@ export default function Player({ p, url, trailerUrl, site, theme, genre: initial
         <p className="tr-hint">
           {supported === false
             ? 'This browser can’t make MP4 files yet — try a recent Chrome, Edge or Safari.'
-            : `Made right here in your browser, nothing is uploaded. ${Math.round(tr.total)} seconds, ${FORMATS[format].w}×${FORMATS[format].h}, silent — add music in LinkedIn, Instagram or CapCut if you like.`}
+            : `Made right here in your browser, nothing is uploaded. ${Math.round(tr.total)} seconds, ${FORMATS[format].w}×${FORMATS[format].h} at up to ${bitrateFor(FORMATS[format].w, FORMATS[format].h) / 1e6} Mbit/s, silent — add music in LinkedIn, Instagram or CapCut if you like.`}
         </p>
         {error && <p className="tr-error" role="alert">{error}</p>}
       </div>
