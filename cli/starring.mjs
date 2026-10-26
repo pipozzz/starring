@@ -6,7 +6,7 @@
 // Counts the commits YOU authored in local git repositories (client work, company
 // GitLab, private repos) and writes starring-activity.json. Only dates and counts are
 // written: no code, no commit messages, no repo names, no emails. Nothing is uploaded.
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { defaultEmails, findRepos, scan } from './scan.mjs';
 
@@ -25,6 +25,7 @@ Options
   -o, --out <file>       output file (default starring-activity.json; "-" for stdout)
       --reveal-hosts     name self-hosted servers (e.g. git.acme.com) instead of "GitLab (self-hosted)"
   -q, --quiet            no per-repo output
+  -v, --version
   -h, --help
 
 Then open your Starring editor → Start from → Import, and drop the file in.
@@ -44,8 +45,14 @@ const { values, positionals } = parseArgs({
     'reveal-hosts': { type: 'boolean' },
     quiet: { type: 'boolean', short: 'q' },
     help: { type: 'boolean', short: 'h' },
+    version: { type: 'boolean', short: 'v' },
   },
 });
+
+if (values.version) {
+  console.log(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version);
+  process.exit(0);
+}
 
 const [command, ...folders] = positionals;
 if (values.help || !command) {
