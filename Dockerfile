@@ -21,6 +21,9 @@ COPY --from=build /app/examples ./examples
 # The commit this image was built from (set by .github/workflows/image.yml); shown by /api/health
 ARG STARRING_VERSION=dev
 ENV STARRING_VERSION=$STARRING_VERSION
+# uploads (STORAGE=local) live here; mount a volume over it
+RUN mkdir -p /app/data/uploads && chown -R node:node /app/data
+ENV STORAGE_DIR=/app/data/uploads
 USER node
 EXPOSE 4321
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s CMD wget -qO- http://127.0.0.1:4321/api/health >/dev/null || exit 1

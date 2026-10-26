@@ -19,7 +19,8 @@ const nameSize = (lines: string[], roomy: boolean) => {
   return Math.max(72, Math.min(byWidth, byHeight));
 };
 
-export function ProfilePoster({ p, host }: { p: Profile; host: string }) {
+/** `photo` is a data: URL — the route reads it from storage, never from the network. */
+export function ProfilePoster({ p, host, photo }: { p: Profile; host: string; photo?: string }) {
   const t = getTheme(p.theme).tokens;
   const me = p.profile;
   const [first, ...rest] = (me.name || 'Your Name').toUpperCase().split(' ');
@@ -32,10 +33,17 @@ export function ProfilePoster({ p, host }: { p: Profile; host: string }) {
     s.all > 0 && [`${s.privateShare}%`, 'in private repos'],
   ].filter(Boolean) as [string, string][];
   const billing = (p.clients ?? []).map((c) => c.name).filter(Boolean).slice(0, 5);
-  const size = nameSize(lines, !billing.length || !stats.length);
+  const size = Math.round(nameSize(lines, !billing.length || !stats.length) * (photo ? 0.7 : 1));
+  const PW = 380;
 
   return (
-    <div style={{ width: W, height: H, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: t.bg, color: t.fg, padding: '44px 60px 40px', fontFamily: GROTESK, position: 'relative' }}>
+    <div style={{ width: W, height: H, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: t.bg, color: t.fg, padding: photo ? `44px ${PW + 30}px 40px 60px` : '44px 60px 40px', fontFamily: GROTESK, position: 'relative' }}>
+      {photo && (
+        <div style={{ position: 'absolute', right: 0, top: 0, width: PW, height: H, display: 'flex' }}>
+          <img src={photo} width={PW} height={H} style={{ width: PW, height: H, objectFit: 'cover' }} />
+          <div style={{ position: 'absolute', left: 0, top: 0, width: PW, height: H, display: 'flex', backgroundImage: `linear-gradient(90deg, ${t.bg} 0%, ${t.bg}00 45%)` }} />
+        </div>
+      )}
       <div style={{ position: 'absolute', left: 0, top: 0, width: W, height: 10, background: t.accent, display: 'flex' }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: MONO, fontSize: 20, letterSpacing: 2, textTransform: 'uppercase' }}>
         <span style={{ color: t.accent }}>Now starring</span>
@@ -53,7 +61,7 @@ export function ProfilePoster({ p, host }: { p: Profile; host: string }) {
       <div style={{ display: 'flex', flex: 1 }} />
 
       {stats.length > 0 && (
-        <div style={{ display: 'flex', gap: 54, alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: photo ? 30 : 54, alignItems: 'flex-end' }}>
           {stats.map(([v, l]) => (
             <div key={l} style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontFamily: ANTON, fontSize: 58, lineHeight: 1, color: l === 'in private repos' ? t.accent : t.fg }}>{v}</span>

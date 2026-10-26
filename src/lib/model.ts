@@ -69,6 +69,8 @@ export interface Profile {
     location?: string;
     tagline?: string;
     available?: boolean;
+    /** Portrait, https:// (an upload on this instance, or any image address). */
+    photo?: string;
     links?: Record<string, string>;
   };
   contributions?: Contribution[];
@@ -164,6 +166,7 @@ export const validate = (p: Profile): Issues => {
   p.clients?.forEach((c, i) => req(`clients.${i}.name`, c.name));
   const link = (path: string, v?: string) => { if (v && !/^https?:\/\//.test(v)) out[path] = 'Must start with https://'; };
   const year = (path: string, v?: number) => { if (v !== undefined && v !== null && (!Number.isInteger(v) || v < 1950 || v > THIS_YEAR + 1)) out[path] = `A year between 1950 and ${THIS_YEAR + 1}`; };
+  if (p.profile?.photo && !/^https?:\/\/\S+$/.test(p.profile.photo)) out['profile.photo'] = 'An https:// image address';
   p.awards?.forEach((a, i) => { req(`awards.${i}.title`, a.title); year(`awards.${i}.year`, a.year); link(`awards.${i}.url`, a.url); });
   p.certifications?.forEach((c, i) => { req(`certifications.${i}.name`, c.name); year(`certifications.${i}.year`, c.year); link(`certifications.${i}.url`, c.url); });
   p.talks?.forEach((t, i) => { req(`talks.${i}.title`, t.title); year(`talks.${i}.year`, t.year); link(`talks.${i}.url`, t.url); });

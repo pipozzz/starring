@@ -3,6 +3,8 @@ import { getSession } from '../auth';
 import { fail, json, sameOrigin } from '../http';
 import { ProfileError, deleteProfile, getByUser, saveProfile, setPublished } from '../profiles';
 import { isAdmin } from '../blocklist';
+import { prunePhotos } from '../photos';
+import { storage } from '../storage';
 
 export const prerender = false;
 
@@ -35,7 +37,11 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     const body = (await request.json()) as { handle?: string; data?: unknown; published?: boolean };
     if (!body.handle) return fail(400, 'handle is required');
-    return json(await saveProfile(g.userId, { handle: body.handle, data: body.data, published: body.published }, { admin: g.admin }));
+    const saved = await saveProfile(g.userId, { handle: body.handle, data: body.data, published: body.published }, { admin: g.admin });
+    // photos this profile no longer shows can go
+    const s = storage();
+    if (s) prunePhotos(s, g.userId, saved.data?.profile?.photo).catch((e) => console.error('[photos] prune failed', e));
+    return json(saved);
   } catch (e) {
     return handleErrors(e);
   }

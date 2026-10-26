@@ -71,7 +71,7 @@ const gzip = (request: Request, res: Response) => {
  * Returns the stage's handle, or null when this isn't a custom-domain request.
  */
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
-const ASSETS = /^\/(_astro|og|brand|fonts)\/|^\/favicon/;
+const ASSETS = /^\/(_astro|og|brand|fonts|media)\/|^\/favicon/;
 const customStage = async (request: Request, url: URL) => {
   if (!SERVER || !/^(1|true|yes)$/i.test(process.env.CUSTOM_DOMAINS ?? '')) return null;
   const host = requestHost(request, url);

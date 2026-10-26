@@ -5,6 +5,8 @@ import { count, eq } from 'drizzle-orm';
 import { isInvited, markJoined } from './access';
 import { db, schema } from './db';
 import { mailEnabled, resetPasswordMail, sendMail, verifyEmailMail } from './mail';
+import { prunePhotos } from './photos';
+import { storage } from './storage';
 
 const env = process.env;
 const flag = (v: string | undefined, fallback: boolean) => (v === undefined ? fallback : /^(1|true|yes)$/i.test(v));
@@ -85,6 +87,9 @@ export const auth = betterAuth({
       // the private-beta request that led to this account goes with it
       afterDelete: async (user) => {
         await db.delete(schema.accessRequest).where(eq(schema.accessRequest.email, user.email.toLowerCase()));
+        // and every photo they uploaded
+        const s = storage();
+        if (s) await prunePhotos(s, user.id, undefined, { all: true }).catch((e) => console.error('[photos] delete failed', e));
       },
     },
   },

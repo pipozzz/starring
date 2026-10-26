@@ -153,6 +153,10 @@ DATABASE_URL=postgres://… BETTER_AUTH_URL=https://… BETTER_AUTH_SECRET=… n
 | `CV_IMPORT_PROVIDER` | the provider whose key is set (`anthropic` if both) | `anthropic` or `openai`. |
 | `CV_IMPORT_MODEL` | provider default | A different model for CV import, e.g. a cheaper one. |
 | `CV_IMPORT_DAILY_LIMIT` | `200` | Imports per day for the whole instance, a spend cap. Each user also gets 10 per day. A typical CV costs a few cents. |
+| `STORAGE` | none | `local` or `s3` turns on **photo uploads** (profile photos). See [Uploads (storage)](#uploads-storage). |
+| `STORAGE_DIR` | `./data/uploads` (`/app/data/uploads` in Docker) | Where `STORAGE=local` keeps files. Put it on a volume. |
+| `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | none | The bucket for `STORAGE=s3`. Any S3-compatible service works. `S3_REGION` defaults to `auto`. |
+| `S3_PUBLIC_URL` | none | A public URL for the bucket (or a CDN in front of it). Without it, files stream through the app at `/media/…` and the bucket can stay private. |
 | `PLAUSIBLE_SRC` | none | Optional [Plausible](https://plausible.io) script URL (`https://…/js/….js`). It's cookieless, and nothing loads when this is unset. For static sites on GitHub Pages, set it as a repository **variable** with the same name instead. |
 | `PLAUSIBLE_API_KEY` | none | A Plausible **Stats API** key (Plausible → Settings → API keys). When set, every owner sees the last 30 days of visitors to *their* page on `/account`: totals, a daily chart, top sources and countries. The key never leaves the server; numbers are cached for 5 minutes. Owners also see their **trailer**: views, plays, how many watched to the end, downloads and shares. For the last four, add the custom-event goals `Trailer play`, `Trailer complete`, `Trailer download` and `Trailer share` in Plausible (Site settings → Goals); until then they show as 0. |
 | `WEEKLY_DIGEST` | on when stats and SMTP are set | Every Monday from 08:00 UTC, owners of live stages get last week's visitors, the trend, top sources and countries by email. It needs `PLAUSIBLE_API_KEY` and SMTP, and `false` turns it off. Each owner can unsubscribe (Account, or the one-click link in every email). It is sent once per owner per week, even with several replicas, and there's no email when a stage had no visitors two weeks running. Admins can send themselves a preview from `/admin`. |
@@ -272,6 +276,25 @@ With Docker Compose, put these in `.env`. On Dokploy or Nomploy, add them in the
 - *"Couldn't reach the AI right now"*: the provider returned an error. The server log has a `[cv-import]` line with the status, usually a wrong key or no credit.
 - *"That's 10 imports today"* / *"busy today"*: one of the daily limits.
 - A scanned PDF (an image without a text layer) still works with Claude, which reads pages as images. If it doesn't, paste the text.
+
+## Uploads (storage)
+
+People can upload a **profile photo**. It shows in the hero of their stage, on the poster that link previews use, and on the title card of their trailer. Uploads are off until you choose where files go:
+
+- **`STORAGE=local`** keeps files on disk in `STORAGE_DIR`. The Docker image uses `/app/data/uploads`, and both compose files mount the `starring-uploads` volume there. Back it up with the database.
+- **`STORAGE=s3`** uses any S3-compatible bucket: AWS S3, Cloudflare R2, MinIO, Hetzner Object Storage, Backblaze B2. Set `S3_ENDPOINT` (without the bucket), `S3_BUCKET`, `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`. Requests are path-style and signed with SigV4.
+  - Leave `S3_PUBLIC_URL` empty and the app streams files at `/media/…`, so the bucket stays private.
+  - Set it to serve photos straight from the bucket or a CDN. The bucket must then allow public reads and send `Access-Control-Allow-Origin: *`, or the trailer can't draw the photo.
+
+How photos are handled:
+
+- **In the browser:** the editor crops the photo to a 4:5 portrait, at most 800×1000, and re-encodes it as JPEG. That drops the location, camera and date before anything leaves the device.
+- **On the server:** it checks again that the file is a real JPEG between 200 and 2400 px and rewrites it without metadata (EXIF, XMP, comments). It also drops anything appended after the image.
+- **Limits:** 3 MB per file and 20 uploads per user per day.
+- **Serving:** files at `/media/…` get an immutable URL, `nosniff` and a sandboxing CSP.
+- **Clean-up:** saving a profile deletes photos it no longer uses, and deleting an account deletes all of that user's photos.
+
+Check it: sign in, open `/edit` → *Headliner* → **Upload a photo**. The photo should appear in the preview, and `curl -I https://your-site/media/…` should return `200` with `content-type: image/jpeg`. With `STORAGE` unset, the editor offers an *Image address* field instead.
 
 ## Terms, privacy and moderation
 

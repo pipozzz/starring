@@ -494,7 +494,7 @@ export default function Editor({ samples }: Props) {
             </ul>
           </aside>
         )}
-        <Section p={p} up={up} issues={issues} notify={notify} />
+        <Section p={p} up={up} issues={issues} notify={notify} canUpload={!!server.me?.user && !!server.me?.features?.uploads} />
         <div className="ed-form-next">
           {SECTIONS.findIndex((s) => s.id === active) < SECTIONS.length - 1 && (
             <button type="button" className="ed-btn ghost" onClick={() => pick(SECTIONS[SECTIONS.findIndex((s) => s.id === active) + 1].id)}>

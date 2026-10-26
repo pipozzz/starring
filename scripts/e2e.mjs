@@ -24,6 +24,7 @@ const inbox = async (to, subject) => {
 };
 const handle = `e2e-${id}`;
 const jars = { user: '', admin: '' };
+let photoUrl = '';
 let as = 'user';
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL;
 
@@ -179,6 +180,42 @@ try {
     assert.equal(oe.status, 200);
     assert.equal((await oe.json()).type, 'rich');
   });
+  await step('photo upload: EXIF stripped, served inertly, on the page and poster (when STORAGE is set)', async () => {
+    const me = await expect(await call('GET', '/api/me'), 200);
+    if (!me.features.uploads) { console.log('    (skipped: STORAGE not configured)'); return; }
+    const { readFileSync } = await import('node:fs');
+    const jpeg = readFileSync(new URL('../src/server/fixtures/photo.jpg', import.meta.url));
+    // add a fake EXIF block with a GPS position, as a phone would
+    const exif = Buffer.from('Exif\0\0GPSLatitude=48.1486;GPSLongitude=17.1077');
+    const dirty = Buffer.concat([jpeg.subarray(0, 2), Buffer.from([0xff, 0xe1, (exif.length + 2) >> 8, (exif.length + 2) & 0xff]), exif, jpeg.subarray(2)]);
+    const form = new FormData();
+    form.append('file', new Blob([dirty], { type: 'image/jpeg' }), 'me.jpg');
+    const up = await fetch(`${BASE}/api/upload/photo`, { method: 'POST', body: form, headers: { Origin: ORIGIN, Cookie: jars[as] } });
+    const body = await up.json();
+    assert.equal(up.status, 200, JSON.stringify(body));
+    photoUrl = body.url;
+    assert.match(photoUrl, /\/media\/photos\/[^/]+\/[\w-]+\.jpg$/);
+    const media = await fetch(BASE + new URL(photoUrl).pathname);
+    assert.equal(media.status, 200);
+    assert.equal(media.headers.get('content-type'), 'image/jpeg');
+    assert.equal(media.headers.get('x-content-type-options'), 'nosniff');
+    assert.match(media.headers.get('content-security-policy') ?? '', /sandbox/);
+    const served = Buffer.from(await media.arrayBuffer());
+    assert.ok(!served.includes('GPSLatitude'), 'no GPS in the served file');
+    // not a JPEG → refused; cross-origin → refused
+    const bad = new FormData();
+    bad.append('file', new Blob(['<svg onload=alert(1)>'], { type: 'image/jpeg' }), 'x.jpg');
+    assert.equal((await fetch(`${BASE}/api/upload/photo`, { method: 'POST', body: bad, headers: { Origin: ORIGIN, Cookie: jars[as] } })).status, 400);
+    assert.equal((await fetch(`${BASE}/api/upload/photo`, { method: 'POST', body: form, headers: { Origin: 'https://evil.example', Cookie: jars[as] } })).status, 403);
+    assert.equal((await fetch(`${BASE}/media/../../etc/passwd`)).status, 404);
+    // on the profile: the hero, the JSON-LD and the poster
+    await expect(await call('PUT', '/api/profile', { handle, data: { ...profile, handle, profile: { ...profile.profile, photo: photoUrl } }, published: true }), 200);
+    const page = await (await call('GET', `/${handle}/`)).text();
+    assert.ok(page.includes('hero-photo') && page.includes(photoUrl), 'photo in the hero');
+    const poster = await call('GET', `/og/${handle}.png`);
+    assert.equal(poster.status, 200);
+    assert.equal(poster.headers.get('content-type'), 'image/png');
+  });
   await step('anyone can report a public profile', async () => {
     const saved = jars.user; jars.user = '';
     await expect(await call('POST', '/api/report', { handle, reason: 'spam', details: 'e2e' }), 200);
@@ -318,6 +355,7 @@ try {
     await step('delete account (cleans up the profile)', async () => {
       await expect(await call('POST', '/api/auth/delete-user', {}), 200);
       assert.equal((await call('GET', `/${handle}`)).status, 404);
+      if (photoUrl) assert.equal((await fetch(BASE + new URL(photoUrl).pathname)).status, 404, 'their photos are gone too');
     }).catch(() => {});
   }
 }

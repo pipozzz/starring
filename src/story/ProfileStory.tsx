@@ -70,10 +70,17 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
           {me.available && <span className="tag solid">Available for work</span>}
           {!preview && <a className="hero-trailer" href={site ? '/trailer/' : link(`${p.handle}/trailer/`)}>▶ Watch the trailer</a>}
         </div>
-        <h1 className="display hero-name">
-          <span className="line">{first}</span>
-          <span className="line accent">{rest.join(' ')}</span>
-        </h1>
+        <div className={`hero-main${me.photo ? ' has-photo' : ''}`}>
+          <h1 className="display hero-name">
+            <span className="line">{first}</span>
+            <span className="line accent">{rest.join(' ')}</span>
+          </h1>
+          {me.photo && (
+            <figure className="hero-photo">
+              <img src={me.photo} alt={me.name} width={800} height={1000} decoding="async" referrerPolicy="no-referrer" />
+            </figure>
+          )}
+        </div>
         <div className="hero-bottom">
           <p className="hero-role">{me.role}</p>
           <p className="muted hero-tag">{me.tagline}</p>
