@@ -51,7 +51,7 @@ const render = ({ heading, body, rows = [], action, footer }: Mail) => ({
   html: `<!doctype html><html><body style="margin:0;background:#0a0a0a;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#f2f0e9">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 16px">
 <table role="presentation" width="100%" style="max-width:520px">
-<tr><td style="font:700 13px/1 monospace;letter-spacing:3px;color:#d4ff00;padding-bottom:28px">STAR<span style="color:#f2f0e9">RING</span></td></tr>
+<tr><td style="padding-bottom:28px"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="28" height="28" align="center" valign="middle" style="background:#d4ff00;border-radius:7px;color:#0a0a0a;font:16px/28px Arial,sans-serif">&#10022;</td><td style="padding-left:10px;font:700 20px/1 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;letter-spacing:-0.5px;color:#f2f0e9">starring</td></tr></table></td></tr>
 <tr><td style="font-size:28px;font-weight:700;line-height:1.2;padding-bottom:16px">${esc(heading)}</td></tr>
 <tr><td style="font-size:16px;line-height:1.6;color:#c9c6bd;padding-bottom:28px">${esc(body)}</td></tr>
 ${rows.length ? `<tr><td style="padding-bottom:28px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows.map(([k, v]) => `<tr><td style="font:12px monospace;letter-spacing:1px;text-transform:uppercase;color:#8a877e;padding:8px 0;border-bottom:1px solid #2a2926">${esc(k)}</td><td align="right" style="font-size:15px;color:#f2f0e9;padding:8px 0;border-bottom:1px solid #2a2926">${esc(v)}</td></tr>`).join('')}</table></td></tr>` : ''}

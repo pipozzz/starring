@@ -8,7 +8,7 @@ export const prerender = false;
 const page = (title: string, text: string, status = 200) =>
   new Response(
     `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${title} — Starring</title>` +
-      `<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#0a0a0a;color:#f2f0e9;font:18px/1.5 system-ui,sans-serif"><main style="max-width:520px;padding:24px"><p style="font:13px monospace;letter-spacing:3px;color:#d4ff00">STARRING</p><h1 style="font-size:36px;margin:12px 0">${title}</h1><p style="color:#c9c6bd">${text}</p><p><a href="/account" style="color:#d4ff00">Email settings →</a></p></main></body></html>`,
+      `<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#0a0a0a;color:#f2f0e9;font:18px/1.5 system-ui,sans-serif"><main style="max-width:520px;padding:24px"><p style="display:flex;align-items:center;gap:10px;font:700 20px/1 system-ui,sans-serif;letter-spacing:-.5px"><img src="/brand/mark.svg" alt="" width="28" height="28">starring</p><h1 style="font-size:36px;margin:12px 0">${title}</h1><p style="color:#c9c6bd">${text}</p><p><a href="/account" style="color:#d4ff00">Email settings →</a></p></main></body></html>`,
     { status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } },
   );
 

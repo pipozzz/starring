@@ -241,7 +241,7 @@ Saying you worked on a project for a company is usually fine. Showing its logo o
 
 ## Brand
 
-The mark is a star breaking out of a ring (STAR + RING), because your work is bigger than the circle GitHub can see. You'll find the assets in [`public/brand/`](public/brand/) (`logo.svg`, `logo-light.svg`, `mark.svg`, `app-icon.png`) and the [brand sheet](docs/brand/sheet.png). Run `npm run brand` to regenerate them.
+The mark is a four-point star cut out of an acid tile, the headline act. It's legible from a 16 px browser tab to an app icon, acid on dark and ink on light. The wordmark is a lowercase Space Grotesk *starring*. You'll find the assets in [`public/brand/`](public/brand/) (`logo.svg`, `logo-light.svg`, `mark.svg`, `app-icon.png`) and the [brand sheet](docs/brand/sheet.png). Run `npm run brand` to regenerate them.
 
 ## License
 

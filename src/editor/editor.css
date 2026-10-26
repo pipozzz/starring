@@ -27,7 +27,7 @@
   grid-area: top; display: flex; align-items: center; gap: 12px; padding: 0 16px;
   border-bottom: 1px solid var(--line); background: var(--panel); min-width: 0;
 }
-.ed-logo { font-size: 26px; text-decoration: none; letter-spacing: .01em; display: inline-flex; align-items: center; gap: 8px; }
+.ed-logo { font: 700 22px/1 var(--body); letter-spacing: -.03em; color: var(--fg); text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
 .ed-logo img { display: block; }
 .ed-sep { width: 1px; height: 24px; background: var(--line); }
 .ed-status { font-size: 11px; color: var(--muted); white-space: nowrap; }
@@ -292,7 +292,7 @@ a.ed-btn { text-decoration: none; display: inline-flex; align-items: center; }
   .ed-devices, .ed-status, .hide-sm, .ed-sep { display: none; }
   .ed-mtabs { display: inline-flex; }
   .ed-top { gap: 8px; padding: 0 8px; }
-  .ed-logo { font-size: 20px; }
+  .ed-logo { font-size: 18px; }
   .ed-form { padding: 20px 16px 120px; }
   .ed-form-head h2 { font-size: 40px; }
   .ed-preview { padding: 0; }

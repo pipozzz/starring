@@ -339,7 +339,7 @@ export default function Editor({ samples }: Props) {
       style={{ ['--accent' as string]: getTheme(p.theme).tokens.accent, ['--accent-ink' as string]: getTheme(p.theme).tokens.accentInk }}
     >
       <header className="ed-top">
-        <a href={link()} className="ed-logo display" aria-label="Starring home"><img src={link('brand/mark.svg')} alt="" width={26} height={26} /><span>Star<span className="accent">ring</span></span></a>
+        <a href={link()} className="ed-logo" aria-label="Starring home"><img src={link('brand/mark.svg')} alt="" width={26} height={26} /><span>starring</span></a>
         <span className="ed-sep" />
         <div className="ed-menu-wrap">
           <button type="button" className="ed-btn ghost" onClick={() => setMenu(menu === 'start' ? null : 'start')} aria-expanded={menu === 'start'}>
