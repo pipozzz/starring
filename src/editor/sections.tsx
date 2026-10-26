@@ -143,7 +143,10 @@ export function NumbersSection({ p, up }: SectionProps) {
   const nextYear = rows.length ? Math.min(...rows.map((r) => r.year)) - 1 : THIS_YEAR - 1;
   return (
     <>
-      <p className="ed-lead">Commits per year. Private = work in client or company repos that GitHub can't show. Importers will fill this automatically later.</p>
+      <p className="ed-lead">Commits per year. Private = work in client or company repos that GitHub can't show.</p>
+      <p className="ed-hint">
+        For the real heatmap, run <code>npx starring-cli scan ~/code</code> on your machine and drop the <code>starring-activity.json</code> it writes onto this editor. It counts commits locally; only dates and counts leave your machine.
+      </p>
       <div className="ed-table">
         <div className="ed-tr ed-th"><span>Year</span><span>Public</span><span>Private</span><span>Imported</span><span /></div>
         {rows.map((r, i) => {

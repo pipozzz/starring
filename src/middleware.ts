@@ -101,6 +101,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     ctx.locals.customDomain = custom.host;
     if (path === '/') res = await ctx.rewrite(`${BASE}/${custom.handle}/`);
     else if (path === '/card' || path === '/card/') res = await ctx.rewrite(`${BASE}/${custom.handle}/card/`);
+    else if (path === '/cv' || path === '/cv/') res = await ctx.rewrite(`${BASE}/${custom.handle}/cv/`);
     else if (path === '/robots.txt') res = new Response('User-agent: *\nAllow: /\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
     else if (ASSETS.test(path)) res = await next();
     else return new Response(null, { status: 301, headers: { Location: (canonical || '') + ctx.url.pathname + ctx.url.search } });

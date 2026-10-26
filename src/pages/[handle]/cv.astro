@@ -1,0 +1,238 @@
+---
+// Printable CV: the same profile as a classic, ink-on-paper résumé. "Save as PDF" is the
+// browser's print dialog, so there's no PDF engine on the server and nothing to keep in sync.
+// Follows the stage's rules: NDA projects never link to code.
+import { SERVER_MODE, store, totals, type Profile } from '../../lib/profiles';
+import { getTheme, themesCss, themeFontsHref } from '../../themes';
+import { pageLink } from '../../lib/url';
+import { publicBase } from '../../lib/site';
+
+export async function getStaticPaths() {
+  return (await store.list()).map((p) => ({ params: { handle: p.handle }, props: { p } }));
+}
+
+let p = (Astro.props as { p?: Profile }).p;
+if (SERVER_MODE) {
+  p = await store.get(Astro.params.handle!);
+  if (!p) return new Response(null, { status: 404 });
+  Astro.response.headers.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=600');
+}
+const profile = p!;
+const me = profile.profile;
+const theme = getTheme(profile.theme);
+const t = totals(profile);
+const custom = Astro.locals.customDomain;
+const stage = custom ? `https://${custom}/` : new URL(pageLink(profile.handle), publicBase(Astro.site, Astro.url)).href;
+
+const bare = (u: string) => u.replace(/^mailto:/, '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+const span = (from?: number | null, to?: number | null) => (from ? (to === null ? `${from} – now` : to && to !== from ? `${from} – ${to}` : `${from}`) : to ? `${to}` : '');
+const dot = (...xs: (string | number | undefined | null)[]) => xs.filter((x) => x !== undefined && x !== null && x !== '').join(' · ');
+
+const links = Object.entries(me.links ?? {}).filter(([, v]) => v);
+const experience = [...(profile.experience ?? [])].sort((a, b) => (b.to ?? 9999) - (a.to ?? 9999) || b.from - a.from);
+const projects = [...(profile.projects ?? [])].filter((x) => x.title).sort((a, b) => b.year - a.year).slice(0, 4);
+const clients = (profile.clients ?? []).filter((c) => c.name);
+const skills = Object.entries(profile.skills ?? {}).filter(([, v]) => v?.length);
+const education = [...(profile.education ?? [])].sort((a, b) => b.to - a.to);
+const certs = (profile.certifications ?? []).filter((c) => c.name);
+const awards = (profile.awards ?? []).filter((a) => a.title);
+const talks = (profile.talks ?? []).filter((x) => x.title).slice(0, 4);
+const languages = (profile.languages ?? []).filter((l) => l.name);
+const interests = (profile.interests ?? []).filter((x) => x.name);
+const numbers = [
+  t.years > 0 && `${t.years} years shipping`,
+  t.all > 0 && `${t.all.toLocaleString('en')} commits (${t.privateShare}% private)`,
+  t.clients > 0 && `${t.clients} clients`,
+].filter(Boolean) as string[];
+---
+<!doctype html>
+<html lang="en" data-theme={theme.id}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>{me.name} — CV</title>
+    <link rel="canonical" href={stage} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link href={themeFontsHref([theme.id])} rel="stylesheet" />
+    <style is:inline set:html={themesCss()} />
+  </head>
+  <body>
+    <nav class="bar" aria-label="CV actions">
+      <a href={stage}>← Back to the stage</a>
+      <button type="button" id="print">Print / Save as PDF</button>
+    </nav>
+
+    <main class="cv">
+      <header class="head">
+        <div>
+          <h1>{me.name}</h1>
+          <p class="role">{dot(me.role, me.location)}</p>
+        </div>
+        <ul class="links">
+          {links.map(([k, v]) => <li><span>{k}</span> <a href={v}>{bare(v)}</a></li>)}
+          <li><span>stage</span> <a href={stage}>{bare(stage)}</a></li>
+        </ul>
+        {me.tagline && <p class="tagline">{me.tagline}</p>}
+        {numbers.length > 0 && <p class="numbers">{numbers.join('  ·  ')}</p>}
+      </header>
+
+      <div class="cols">
+        <div class="main">
+          {experience.length > 0 && (
+            <section>
+              <h2>Experience</h2>
+              {experience.map((e) => (
+                <article>
+                  <header><h3>{e.role} <span>· {e.company}</span></h3><time>{span(e.from, e.to)}</time></header>
+                  {e.summary && <p>{e.summary}</p>}
+                  {e.clients?.length ? <p class="meta">Clients: {e.clients.join(', ')}</p> : null}
+                  {e.stack?.length ? <p class="meta">{e.stack.join(' · ')}</p> : null}
+                </article>
+              ))}
+            </section>
+          )}
+
+          {projects.length > 0 && (
+            <section>
+              <h2>Selected work</h2>
+              {projects.map((x) => {
+                const url = x.visibility === 'nda' ? undefined : x.url;
+                return (
+                  <article>
+                    <header>
+                      <h3>{x.title}{x.client && <span> · {x.client}</span>}</h3>
+                      <time>{dot(x.visibility === 'nda' ? 'NDA' : undefined, x.year)}</time>
+                    </header>
+                    <p>{x.blurb}</p>
+                    {x.impact?.length ? <ul class="impact">{x.impact.map((i) => <li>{i}</li>)}</ul> : null}
+                    {(x.stack?.length || x.role) && <p class="meta">{dot(x.role, x.stack?.join(', '))}</p>}
+                    {(x.live || url) && (
+                      <p class="meta">
+                        {x.live && <a href={x.live}>{bare(x.live)}</a>}
+                        {x.live && url && ' · '}
+                        {url && <a href={url}>{bare(url)}</a>}
+                      </p>
+                    )}
+                  </article>
+                );
+              })}
+            </section>
+          )}
+
+          {talks.length > 0 && (
+            <section>
+              <h2>Talks &amp; writing</h2>
+              <ul class="plain">
+                {talks.map((x) => (
+                  <li>{x.url ? <a href={x.url}>{x.title}</a> : x.title} <span class="meta">{dot(x.venue, x.year)}</span></li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+
+        <aside class="side">
+          {skills.length > 0 && (
+            <section>
+              <h2>Skills</h2>
+              {skills.map(([group, items]) => <p><b>{group}</b><br />{items.join(', ')}</p>)}
+            </section>
+          )}
+          {clients.length > 0 && (
+            <section>
+              <h2>Clients</h2>
+              <p>{clients.map((c) => c.name).join(', ')}</p>
+            </section>
+          )}
+          {education.length > 0 && (
+            <section>
+              <h2>Education</h2>
+              {education.map((e) => <p><b>{e.school}</b><br />{dot(e.degree, span(e.from, e.to))}</p>)}
+            </section>
+          )}
+          {(certs.length > 0 || awards.length > 0) && (
+            <section>
+              <h2>Accolades</h2>
+              <ul class="plain">
+                {awards.map((a) => <li><b>{a.title}</b> <span class="meta">{dot(a.by, a.year)}</span></li>)}
+                {certs.map((c) => <li>{c.name} <span class="meta">{dot(c.issuer, c.year)}</span></li>)}
+              </ul>
+            </section>
+          )}
+          {languages.length > 0 && (
+            <section>
+              <h2>Languages</h2>
+              <p>{languages.map((l) => dot(l.name, l.level)).join(', ')}</p>
+            </section>
+          )}
+          {interests.length > 0 && (
+            <section>
+              <h2>Outside work</h2>
+              <p>{interests.map((x) => x.name).join(', ')}</p>
+            </section>
+          )}
+        </aside>
+      </div>
+
+      <footer class="foot">The full story, with projects and commit history: <a href={stage}>{bare(stage)}</a></footer>
+    </main>
+
+    <script>
+      document.getElementById('print')?.addEventListener('click', () => window.print());
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  /* ink on paper whatever the stage's theme; the theme only lends its fonts */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, html[data-theme] { color-scheme: light; background: #e9e8e3; color: #111; }
+  body { font: 13.5px/1.5 var(--body), system-ui, sans-serif; padding: 24px 16px 64px; }
+  a { color: inherit; }
+  .bar { max-width: 210mm; margin: 0 auto 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; font: 13px var(--mono), monospace; }
+  .bar a { text-decoration: none; }
+  .bar button { font: inherit; padding: 9px 14px; border: 0; background: #111; color: #fff; cursor: pointer; }
+  .bar button:focus-visible, .bar a:focus-visible { outline: 2px solid #111; outline-offset: 3px; }
+  .cv { max-width: 210mm; margin: 0 auto; background: #fff; padding: 16mm 15mm; box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+  .head { display: grid; grid-template-columns: 1fr auto; gap: 6px 24px; padding-bottom: 14px; border-bottom: 2px solid #111; }
+  h1 { font: 700 30px/1.1 var(--body), system-ui, sans-serif; letter-spacing: -.02em; }
+  .role { font-size: 15px; font-weight: 600; }
+  .links { list-style: none; font: 11.5px/1.6 var(--mono), monospace; text-align: right; }
+  .links span { color: #666; text-transform: lowercase; }
+  .links a { text-decoration: none; }
+  .tagline, .numbers { grid-column: 1 / -1; }
+  .tagline { font-size: 14px; }
+  .numbers { font: 11.5px var(--mono), monospace; color: #444; }
+  .cols { display: grid; grid-template-columns: 1fr 56mm; gap: 9mm; margin-top: 16px; }
+  section + section { margin-top: 16px; }
+  h2 { font: 700 11px/1 var(--mono), monospace; letter-spacing: .1em; text-transform: uppercase; padding-bottom: 6px; margin-bottom: 8px; border-bottom: 1px solid #ccc; }
+  article { break-inside: avoid; }
+  article + article { margin-top: 11px; }
+  article header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  h3 { font-size: 14px; font-weight: 700; }
+  h3 span { font-weight: 400; }
+  time { font: 11px var(--mono), monospace; color: #555; white-space: nowrap; }
+  .meta { font-size: 12px; color: #555; }
+  .impact { padding-left: 16px; }
+  .plain { list-style: none; display: grid; gap: 5px; }
+  .side p + p { margin-top: 8px; }
+  .side { font-size: 12.5px; }
+  .foot { margin-top: 18px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 11.5px; color: #555; }
+  @media (max-width: 640px) {
+    .cv { padding: 20px 16px; }
+    .head, .cols { grid-template-columns: 1fr; }
+    .links { text-align: left; }
+  }
+  @media print {
+    @page { size: A4; margin: 12mm; }
+    html, html[data-theme], body { background: #fff; padding: 0; }
+    body { font-size: 12.5px; line-height: 1.42; }
+    h1 { font-size: 26px; }
+    article + article { margin-top: 8px; }
+    section + section { margin-top: 12px; }
+    .bar { display: none; }
+    .cv { max-width: none; padding: 0; box-shadow: none; }
+    a { text-decoration: none; }
+  }
+</style>

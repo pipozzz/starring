@@ -67,6 +67,10 @@ export default function ShareDialog({ p, url, poster, onClose }: Props) {
             <b>Feature it on LinkedIn.</b> On your profile: <i>Add profile section → Recommended → Add featured → Add a link</i>, paste your address. It shows up with your poster, right under your headline.{' '}
             <button type="button" className="ed-link" onClick={() => copy('featured', url)}>{copied === 'featured' ? 'Copied ✓' : 'Copy link'}</button>
           </li>
+          <li>
+            <b>Send it as a CV.</b> Job forms still want a PDF: your stage prints as a one-page CV that links back here.{' '}
+            <a className="ed-link" href={`${url.replace(/\/?$/, '/')}cv/`} target="_blank" rel="noreferrer">Open the CV ↗</a>
+          </li>
           {snippets.map((s) => (
             <li key={s.id}>
               <b>{s.title}.</b> {s.hint}

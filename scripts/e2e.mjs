@@ -171,6 +171,7 @@ try {
     assert.equal(og.status, 200);
     assert.equal(og.headers.get('content-type'), 'image/png');
     assert.equal((await call('GET', `/${handle}/card`)).status, 200);
+    assert.equal((await call('GET', `/${handle}/cv/`)).status, 200);
     assert.match(await (await call('GET', '/sitemap.xml')).text(), new RegExp(handle));
     assert.match(await (await call('GET', '/explore')).text(), new RegExp(`/${handle}`), 'listed on /explore');
     const oe = await call('GET', `/oembed?url=${encodeURIComponent(`${BASE}/${handle}/`)}`);

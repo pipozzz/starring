@@ -62,7 +62,9 @@ const toYaml = (p: Profile) =>
 
 const readiness = (p: Profile) => {
   const t = totals(p);
+  const blank = blankProfile().profile;
   const checks: [boolean, string, string][] = [
+    [!!p.profile.name.trim() && p.profile.name !== blank.name && !!p.profile.role.trim() && p.profile.role !== blank.role, 'Put your name and role up in lights', 'profile'],
     [!!p.profile.tagline?.trim(), 'Write a tagline', 'profile'],
     [Object.values(p.profile.links ?? {}).some(Boolean), 'Add at least one link', 'profile'],
     [t.all > 0, 'Add your commit numbers', 'contributions'],
@@ -72,6 +74,13 @@ const readiness = (p: Profile) => {
     [(p.projects ?? []).some((x) => x.impact?.length), 'Give a project impact numbers', 'projects'],
     [(p.education?.length ?? 0) > 0, 'Add education', 'education'],
     [Object.keys(p.skills ?? {}).length > 0, 'Add skills', 'skills'],
+    // what makes a stage stand out, beyond the CV basics
+    [(p.projects ?? []).some((x) => x.image || x.live), 'Show a project: a screenshot or live link', 'projects'],
+    [Object.keys(p.activity ?? {}).length > 0, 'Add your real commit heatmap', 'contributions'],
+    [!!(p.awards?.length || p.certifications?.length), 'Add an award or certification', 'awards'],
+    [(p.talks?.length ?? 0) > 0, 'Add a talk, article or podcast', 'talks'],
+    [(p.testimonials?.length ?? 0) > 0, 'Quote a colleague or client', 'testimonials'],
+    [(p.interests?.length ?? 0) > 0, 'Show who you are outside work', 'interests'],
   ];
   const done = checks.filter((c) => c[0]).length;
   return { score: Math.round((done / checks.length) * 100), todo: checks.filter((c) => !c[0]) };

@@ -322,6 +322,8 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
         <h2 className="display">Starring<br /><span className="accent">{me.name}</span></h2>
         <ul className="mono">
           {links.map(([k, v]) => <li key={k}><a href={v}>{k} ↗</a></li>)}
+          {/* on a custom domain the stage is the site root, so the CV is /cv/ there */}
+          <li><a href={site ? '/cv/' : link(`${p.handle}/cv/`)}>CV / PDF ↓</a></li>
         </ul>
         <p className="mono muted">Made with Starring — open source</p>
         <p className="mono muted legal-links"><a href={at('terms')}>Terms</a> · <a href={at('privacy')}>Privacy</a></p>
