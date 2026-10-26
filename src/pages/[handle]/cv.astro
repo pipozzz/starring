@@ -6,6 +6,7 @@ import { SERVER_MODE, store, totals, type Profile } from '../../lib/profiles';
 import { getTheme, themesCss, themeFontsHref } from '../../themes';
 import { pageLink } from '../../lib/url';
 import { publicBase } from '../../lib/site';
+import { renderSVG } from 'uqr';
 
 export async function getStaticPaths() {
   return (await store.list()).map((p) => ({ params: { handle: p.handle }, props: { p } }));
@@ -24,6 +25,8 @@ const t = totals(profile);
 const custom = Astro.locals.customDomain;
 const stage = custom ? `https://${custom}/` : new URL(pageLink(profile.handle), publicBase(Astro.site, Astro.url)).href;
 
+// printed CVs get scanned: the code leads back to the full stage
+const qr = renderSVG(stage, { border: 2, ecc: 'M' }).replace('<svg ', '<svg aria-hidden="true" shape-rendering="crispEdges" ');
 const bare = (u: string) => u.replace(/^mailto:/, '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
 const span = (from?: number | null, to?: number | null) => (from ? (to === null ? `${from} – now` : to && to !== from ? `${from} – ${to}` : `${from}`) : to ? `${to}` : '');
 const dot = (...xs: (string | number | undefined | null)[]) => xs.filter((x) => x !== undefined && x !== null && x !== '').join(' · ');
@@ -69,6 +72,10 @@ const numbers = [
           <h1>{me.name}</h1>
           <p class="role">{dot(me.role, me.location)}</p>
         </div>
+        <figure class="qr">
+          <Fragment set:html={qr} />
+          <figcaption>Scan for the full story</figcaption>
+        </figure>
         <ul class="links">
           {links.map(([k, v]) => <li><span>{k}</span> <a href={v}>{bare(v)}</a></li>)}
           <li><span>stage</span> <a href={stage}>{bare(stage)}</a></li>
@@ -195,13 +202,16 @@ const numbers = [
   .bar button { font: inherit; padding: 9px 14px; border: 0; background: #111; color: #fff; cursor: pointer; }
   .bar button:focus-visible, .bar a:focus-visible { outline: 2px solid #111; outline-offset: 3px; }
   .cv { max-width: 210mm; margin: 0 auto; background: #fff; padding: 16mm 15mm; box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
-  .head { display: grid; grid-template-columns: 1fr auto; gap: 6px 24px; padding-bottom: 14px; border-bottom: 2px solid #111; }
+  .head { display: grid; grid-template-columns: 1fr auto auto; gap: 6px 20px; padding-bottom: 14px; border-bottom: 2px solid #111; }
   h1 { font: 700 30px/1.1 var(--body), system-ui, sans-serif; letter-spacing: -.02em; }
   .role { font-size: 15px; font-weight: 600; }
-  .links { list-style: none; font: 11.5px/1.6 var(--mono), monospace; text-align: right; }
+  .qr { grid-column: 3; grid-row: 1 / span 3; width: 24mm; display: grid; gap: 4px; justify-items: center; }
+  .qr svg { width: 24mm; height: 24mm; display: block; }
+  .qr figcaption { font: 9px/1.2 var(--mono), monospace; color: #555; text-align: center; }
+  .links { grid-column: 2; grid-row: 1; list-style: none; font: 11.5px/1.6 var(--mono), monospace; text-align: right; }
   .links span { color: #666; text-transform: lowercase; }
   .links a { text-decoration: none; }
-  .tagline, .numbers { grid-column: 1 / -1; }
+  .tagline, .numbers { grid-column: 1 / 3; }
   .tagline { font-size: 14px; }
   .numbers { font: 11.5px var(--mono), monospace; color: #444; }
   .cols { display: grid; grid-template-columns: 1fr 56mm; gap: 9mm; margin-top: 16px; }
@@ -222,6 +232,8 @@ const numbers = [
   @media (max-width: 640px) {
     .cv { padding: 20px 16px; }
     .head, .cols { grid-template-columns: 1fr; }
+    .head > * { grid-column: 1 !important; grid-row: auto !important; }
+    .qr { display: none; }
     .links { text-align: left; }
   }
   @media print {
