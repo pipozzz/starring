@@ -14,7 +14,7 @@ import Onboarding from './Onboarding';
 import { useServer, type SyncStatus } from './useServer';
 import { getTheme, hasTheme } from '../themes';
 import {
-  AccoladesSection, InterestsSection, TalksSection, TestimonialsSection,
+  AccoladesSection, InterestsSection, OpenSourceSection, TalksSection, TestimonialsSection,
   ClientsSection, EducationSection, ExperienceSection, NumbersSection, PlatformsSection,
   ProfileSection, ProjectsSection, SkillsSection, type SectionProps,
 } from './sections';
@@ -24,17 +24,18 @@ const DRAFT_KEY = 'starring:draft:v1';
 
 const SECTIONS: { id: string; label: string; short: string; act: string; C: (p: SectionProps) => ReactElement; prefix: string[] }[] = [
   { id: 'profile', label: 'Headliner', short: 'Hero', act: 'Hero', C: ProfileSection, prefix: ['handle', 'profile.', 'analytics.'] },
-  { id: 'contributions', label: 'Numbers', short: 'Nums', act: 'I · VII', C: NumbersSection, prefix: ['contributions.'] },
+  { id: 'contributions', label: 'Numbers', short: 'Nums', act: 'I · VIII', C: NumbersSection, prefix: ['contributions.'] },
   { id: 'clients', label: 'Clients', short: 'Clnt', act: 'II', C: ClientsSection, prefix: ['clients.'] },
   { id: 'experience', label: 'Timeline', short: 'Time', act: 'III', C: ExperienceSection, prefix: ['experience.'] },
   { id: 'projects', label: 'Featured work', short: 'Work', act: 'IV', C: ProjectsSection, prefix: ['projects.'] },
-  { id: 'awards', label: 'Accolades', short: 'Award', act: 'V', C: AccoladesSection, prefix: ['awards.', 'certifications.'] },
-  { id: 'talks', label: 'Press tour', short: 'Talk', act: 'VI', C: TalksSection, prefix: ['talks.'] },
-  { id: 'platforms', label: 'Platforms', short: 'Git', act: 'VII', C: PlatformsSection, prefix: ['platforms.'] },
-  { id: 'education', label: 'Education', short: 'Edu', act: 'VIII', C: EducationSection, prefix: ['education.'] },
-  { id: 'skills', label: 'Skills & languages', short: 'Skill', act: 'VIII', C: SkillsSection, prefix: ['skills', 'languages.'] },
-  { id: 'interests', label: 'Behind the scenes', short: 'Life', act: 'IX', C: InterestsSection, prefix: ['interests.'] },
-  { id: 'testimonials', label: 'The critics', short: 'Quote', act: 'X', C: TestimonialsSection, prefix: ['testimonials.'] },
+  { id: 'openSource', label: 'Guest appearances', short: 'OSS', act: 'V', C: OpenSourceSection, prefix: ['openSource.'] },
+  { id: 'awards', label: 'Accolades', short: 'Award', act: 'VI', C: AccoladesSection, prefix: ['awards.', 'certifications.'] },
+  { id: 'talks', label: 'Press tour', short: 'Talk', act: 'VII', C: TalksSection, prefix: ['talks.'] },
+  { id: 'platforms', label: 'Platforms', short: 'Git', act: 'VIII', C: PlatformsSection, prefix: ['platforms.'] },
+  { id: 'education', label: 'Education', short: 'Edu', act: 'IX', C: EducationSection, prefix: ['education.'] },
+  { id: 'skills', label: 'Skills & languages', short: 'Skill', act: 'IX', C: SkillsSection, prefix: ['skills', 'languages.'] },
+  { id: 'interests', label: 'Behind the scenes', short: 'Life', act: 'X', C: InterestsSection, prefix: ['interests.'] },
+  { id: 'testimonials', label: 'The critics', short: 'Quote', act: 'XI', C: TestimonialsSection, prefix: ['testimonials.'] },
 ];
 
 const DEVICES = { desktop: 1280, tablet: 820, phone: 390 } as const;
@@ -78,6 +79,7 @@ const readiness = (p: Profile) => {
     [(p.projects ?? []).some((x) => x.image || x.live), 'Show a project: a screenshot or live link', 'projects'],
     [Object.keys(p.activity ?? {}).length > 0, 'Add your real commit heatmap', 'contributions'],
     [!!(p.awards?.length || p.certifications?.length), 'Add an award or certification', 'awards'],
+    [(p.openSource?.length ?? 0) > 0, 'Show your open-source contributions', 'openSource'],
     [(p.talks?.length ?? 0) > 0, 'Add a talk, article or podcast', 'talks'],
     [(p.testimonials?.length ?? 0) > 0, 'Quote a colleague or client', 'testimonials'],
     [(p.interests?.length ?? 0) > 0, 'Show who you are outside work', 'interests'],

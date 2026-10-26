@@ -41,6 +41,24 @@ export interface Language { name: string; level?: string }
 export interface Interest { name: string; note?: string }
 export interface Testimonial { quote: string; name: string; role?: string; company?: string; url?: string }
 export interface Education { school: string; degree: string; from: number; to: number }
+export type OssKind = 'code' | 'docs' | 'translation' | 'design' | 'maintainer';
+/** Work in someone else's open-source project: a PR, a translation, a maintainer role. */
+export interface OpenSource {
+  /** "owner/name" for GitHub repos, or the project's name. */
+  repo: string;
+  /** What you did, in a line: "Slovak translation", "Postgres 17 support". */
+  what: string;
+  kind?: OssKind;
+  /** The PR, your PR list, or the project. */
+  url?: string;
+  year?: number;
+  /** Merged pull requests. */
+  prs?: number;
+  /** The project's stars when imported. */
+  stars?: number;
+  /** https:// logo; GitHub repos default to the owner's avatar. */
+  logo?: string;
+}
 
 export interface Profile {
   handle: string;
@@ -68,6 +86,8 @@ export interface Profile {
   /** Hobbies and interests — the person behind the work. */
   interests?: Interest[];
   testimonials?: Testimonial[];
+  /** Contributions to other people's open-source projects. */
+  openSource?: OpenSource[];
   /** Commits per day ('YYYY-MM-DD' → n) from `starring scan` or an importer; drives the real heatmap. */
   activity?: Record<string, number>;
   /** The owner's own analytics for their profile page. */
@@ -148,6 +168,13 @@ export const validate = (p: Profile): Issues => {
   p.certifications?.forEach((c, i) => { req(`certifications.${i}.name`, c.name); year(`certifications.${i}.year`, c.year); link(`certifications.${i}.url`, c.url); });
   p.talks?.forEach((t, i) => { req(`talks.${i}.title`, t.title); year(`talks.${i}.year`, t.year); link(`talks.${i}.url`, t.url); });
   p.languages?.forEach((l, i) => req(`languages.${i}.name`, l.name));
+  p.openSource?.forEach((o, i) => {
+    req(`openSource.${i}.repo`, o.repo);
+    req(`openSource.${i}.what`, o.what);
+    year(`openSource.${i}.year`, o.year);
+    link(`openSource.${i}.url`, o.url);
+    if (o.logo && !/^https:\/\/\S+$/.test(o.logo)) out[`openSource.${i}.logo`] = 'An https:// image address';
+  });
   p.interests?.forEach((x, i) => req(`interests.${i}.name`, x.name));
   p.testimonials?.forEach((t, i) => {
     req(`testimonials.${i}.quote`, t.quote);
@@ -171,6 +198,20 @@ export const validate = (p: Profile): Issues => {
 };
 
 // ---------- derived numbers ----------
+
+const GH_REPO = /^([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/[\w.-]+$/;
+/** The project's logo: the one given, else the GitHub owner's avatar when the repo is on GitHub. */
+export const ossLogo = (o: OpenSource): string | undefined => {
+  if (o.logo) return o.logo;
+  const owner = GH_REPO.exec(o.repo?.trim() ?? '')?.[1];
+  const onGithub = !o.url || /^https:\/\/github\.com\//.test(o.url);
+  return owner && onGithub ? `https://avatars.githubusercontent.com/${owner}?s=96` : undefined;
+};
+/** The project's page: the GitHub repo for "owner/name", else the given link. */
+export const ossHome = (o: OpenSource): string | undefined =>
+  GH_REPO.test(o.repo?.trim() ?? '') && (!o.url || o.url.startsWith('https://github.com/')) ? `https://github.com/${o.repo.trim()}` : o.url;
+/** 15091 → "15k", 1234 → "1.2k". */
+export const compact = (n: number) => (n >= 10_000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(n));
 
 export const totals = (p: Profile) => {
   const c = p.contributions ?? [];

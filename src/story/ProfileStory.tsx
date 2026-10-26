@@ -1,9 +1,10 @@
-import { activityGrid, totals, heatmap, type Profile, type TalkKind, type Visibility } from '../lib/model';
+import { activityGrid, compact, ossHome, ossLogo, totals, heatmap, type OssKind, type Profile, type TalkKind, type Visibility } from '../lib/model';
 import { link } from '../lib/url';
 import './story.css';
 
 const VIS_LABEL: Record<Visibility, string> = { public: 'Open source', private: 'Private repo', nda: 'Under NDA' };
 const KIND_LABEL: Record<TalkKind, string> = { talk: 'Talk', article: 'Article', podcast: 'Podcast', video: 'Video', book: 'Book' };
+const OSS_LABEL: Record<OssKind, string> = { code: 'Code', docs: 'Docs', translation: 'Translation', design: 'Design', maintainer: 'Maintainer' };
 const joined = (...xs: (string | number | undefined | null)[]) => xs.filter((x) => x !== undefined && x !== null && x !== '').join(' · ');
 const n = (v: number) => (v || 0).toLocaleString('en');
 
@@ -45,6 +46,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
   const languages = (p.languages ?? []).filter((l) => l.name);
   const interests = (p.interests ?? []).filter((x) => x.name);
   const testimonials = (p.testimonials ?? []).filter((x) => x.quote && x.name);
+  const oss = (p.openSource ?? []).filter((x) => x.repo && x.what);
 
   const sec = (id: string) => ({
     'data-section': id,
@@ -54,7 +56,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
     }),
   });
   let act = 0;
-  const roman = () => ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][act++];
+  const roman = () => ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV'][act++];
   const Label = ({ children }: { children: string }) => (
     <h2 className="act-label mono"><span className="num">Act {roman()}</span><span>{children}</span></h2>
   );
@@ -167,6 +169,34 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
               </article>
             ))}
           </div>
+        </section>
+      )}
+
+      {oss.length > 0 && (
+        <section className="act" id="open-source" {...sec('openSource')}>
+          <Label>Guest appearances</Label>
+          <p className="oss-lede muted reveal">Cameos in other people's open-source productions.</p>
+          <ul className="oss">
+            {oss.map((x, i) => {
+              const logo = ossLogo(x);
+              const home = ossHome(x);
+              return (
+                <li className="reveal" key={i}>
+                  <span className="oss-logo" aria-hidden="true">
+                    {logo ? <img src={logo} alt="" width={48} height={48} loading="lazy" referrerPolicy="no-referrer" /> : <b className="display">{x.repo.replace(/^.*\//, '').slice(0, 1).toUpperCase()}</b>}
+                  </span>
+                  <div className="oss-body">
+                    <p className="mono oss-repo">
+                      {home ? <a href={home}>{x.repo}</a> : x.repo}
+                      {!!x.stars && <span className="muted"> ★ {compact(x.stars)}</span>}
+                    </p>
+                    <h3>{x.url && x.url !== home ? <a href={x.url}>{x.what} ↗</a> : x.what}</h3>
+                    <p className="mono muted">{joined(x.kind && OSS_LABEL[x.kind], x.prs && x.prs > 1 ? `${x.prs} merged PRs` : x.prs === 1 ? 'Merged PR' : undefined, x.year)}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         </section>
       )}
 

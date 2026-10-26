@@ -1,12 +1,13 @@
 // GitHub importer: public profile + repos → a Starring draft.
 // Runs in the browser (and in Node 18+). Talks only to api.github.com.
 //
-// Without a token: public REST data (60 requests/hour per IP — we use 2).
+// Without a token: public REST data (60 requests/hour per IP — we use up to 9).
+// Merged pull requests to other people's repos become "Guest appearances".
 // With a token: also exact contributions per year via GraphQL, including the
 // private-contribution count GitHub exposes when "Private contributions" is on.
 // The token is used for these requests only and never stored.
 
-import { HANDLE, blankProfile, type Contribution, type Profile, type Project } from '../model';
+import { HANDLE, blankProfile, type Contribution, type OpenSource, type OssKind, type Profile, type Project } from '../model';
 
 const API = 'https://api.github.com';
 
@@ -93,6 +94,48 @@ const graphql = async <T>(token: string, query: string, variables: object): Prom
   return json.data;
 };
 
+interface GhSearchPr { title: string; html_url: string; repository_url: string; closed_at: string | null; pull_request?: { merged_at: string | null } }
+
+/** "feat(i18n): add Slovak (sk) translation" → "Add Slovak (sk) translation". */
+export const prTitle = (t: string) => {
+  const s = t.replace(/^\s*(\[[^\]]*\]\s*)?([a-z]+(\([^)]*\))?!?:\s*)?/i, '').trim() || t.trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+export const prKind = (titles: string[]): OssKind => {
+  const t = titles.join(' ').toLowerCase();
+  if (/\bi18n\b|translat|locali[sz]|\blocales?\b|\bl10n\b/.test(t)) return 'translation';
+  if (/^docs|\bdocs?\b|readme|documentation|typo/.test(t)) return 'docs';
+  return 'code';
+};
+
+/** Merged PRs to repos the user doesn't own, grouped per repo, biggest projects first. */
+export const guestAppearances = async (login: string, token?: string): Promise<OpenSource[]> => {
+  const q = encodeURIComponent(`is:pr is:merged author:${login} -user:${login}`);
+  const found = await get<{ items: GhSearchPr[] }>(`/search/issues?q=${q}&per_page=100&sort=updated`, token).catch(() => ({ items: [] }));
+  const byRepo = new Map<string, GhSearchPr[]>();
+  for (const pr of found.items) {
+    const repo = pr.repository_url.replace(`${API}/repos/`, '');
+    byRepo.set(repo, [...(byRepo.get(repo) ?? []), pr]);
+  }
+  const repos = [...byRepo.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 7);
+  const stars = await Promise.all(repos.map(([repo]) => get<{ stargazers_count: number; private: boolean }>(`/repos/${repo}`, token).catch(() => null)));
+  return repos
+    .map(([repo, prs], i): OpenSource => {
+      const latest = [...prs].sort((a, b) => (b.closed_at ?? '').localeCompare(a.closed_at ?? ''))[0];
+      return {
+        repo,
+        what: prs.length === 1 ? prTitle(latest.title) : `${prTitle(latest.title)} and ${prs.length - 1} more`,
+        kind: prKind(prs.map((x) => x.title)),
+        url: prs.length === 1 ? latest.html_url : `https://github.com/${repo}/pulls?q=${encodeURIComponent(`is:pr is:merged author:${login}`)}`,
+        year: new Date(latest.closed_at ?? Date.now()).getFullYear(),
+        prs: prs.length,
+        ...(stars[i]?.stargazers_count && { stars: stars[i]!.stargazers_count }),
+      };
+    })
+    .sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0))
+    .slice(0, 6);
+};
+
 const top = (counts: Map<string, number>, n: number) =>
   [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k]) => k);
 
@@ -127,9 +170,10 @@ export async function importGithub(input: string, opts: { token?: string; base?:
   const token = opts.token?.trim() || undefined;
   const notes: string[] = [];
 
-  const [user, repos] = await Promise.all([
+  const [user, repos, guest] = await Promise.all([
     get<GhUser>(`/users/${login}`, token),
     get<GhRepo[]>(`/users/${login}/repos?per_page=100&sort=pushed&type=owner`, token),
+    guestAppearances(login, token),
   ]);
 
   const own = repos.filter((r) => !r.fork && !r.archived);
@@ -185,6 +229,8 @@ export async function importGithub(input: string, opts: { token?: string; base?:
       ...(base.platforms ?? []).filter((p) => p.name !== 'GitHub'),
     ],
     projects: [...featured, ...(base.projects ?? []).filter((p) => p.visibility !== 'public')],
+    // keep what was added by hand; refresh what came from GitHub
+    openSource: [...guest, ...(base.openSource ?? []).filter((o) => !guest.some((g) => g.repo.toLowerCase() === o.repo.toLowerCase()))],
     skills: {
       ...(langs.size && { Languages: top(langs, 8) }),
       ...(topics.size && { Topics: top(topics, 8).map(prettyTopic) }),
@@ -193,6 +239,7 @@ export async function importGithub(input: string, opts: { token?: string; base?:
   };
 
   if (user.company?.trim()) notes.push(`GitHub lists “${user.company.trim().replace(/^@/, '')}” as your company — add it to the Timeline with dates.`);
+  if (guest.length) notes.push(`Found merged pull requests in ${guest.length} other project${guest.length > 1 ? 's' : ''} — they're under Guest appearances. Reword what you did if the PR title doesn't say it.`);
   if (!featured.length) notes.push('No public repositories to feature yet — add your best private or NDA work by hand.');
   if (profile.profile.role === 'Software Engineer' && base.profile.role !== 'Software Engineer') {
     notes.push('Role was set to “Software Engineer” — make it yours.');

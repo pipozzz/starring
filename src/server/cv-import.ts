@@ -46,6 +46,7 @@ export const CV_SCHEMA = obj({
   talks: many({ title: { type: 'string' }, kind: { type: 'string', enum: ['talk', 'article', 'podcast', 'video', 'book'] }, venue: str, year: int, url: str }),
   languages: many({ name: { type: 'string' }, level: str }),
   interests: many({ name: { type: 'string' }, note: str }),
+  openSource: many({ project: { type: 'string' }, what: { type: 'string' }, url: str, year: int }),
 });
 
 export const CV_PROMPT = `You turn a software developer's CV, résumé or self-description into structured data for their portfolio page.
@@ -61,6 +62,7 @@ Field notes:
 - projects: notable projects with a one-sentence blurb (≤ 180 characters). impact: short outcomes that the document states, ideally numbers ("18M visits", "-40% build time"); empty if none are stated. confidential = true when the document says it was under NDA, confidential, or the client is undisclosed. url: only a link the document gives.
 - skills: group them the way the document does, or into a few sensible groups (e.g. Languages, Frontend, Cloud & DevOps).
 - certifications, awards, talks (talks, articles, podcasts, videos, books they made), languages (spoken languages with level), interests (hobbies): only if present.
+- openSource: contributions to open-source projects they don't own (pull requests, translations, docs, maintainer roles). project: "owner/name" when a GitHub repo is given, else the project's name. what: one short line of what they did. Not their own side projects (those go in projects).
 - links: full URLs or handles exactly as written (github/gitlab/linkedin/website/x) and the email address if present.`;
 
 // ---- documents ----

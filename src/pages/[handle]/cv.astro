@@ -3,6 +3,7 @@
 // browser's print dialog, so there's no PDF engine on the server and nothing to keep in sync.
 // Follows the stage's rules: NDA projects never link to code.
 import { SERVER_MODE, store, totals, type Profile } from '../../lib/profiles';
+import { compact, ossHome } from '../../lib/model';
 import { getTheme, themesCss, themeFontsHref } from '../../themes';
 import { pageLink } from '../../lib/url';
 import { publicBase } from '../../lib/site';
@@ -39,6 +40,7 @@ const skills = Object.entries(profile.skills ?? {}).filter(([, v]) => v?.length)
 const education = [...(profile.education ?? [])].sort((a, b) => b.to - a.to);
 const certs = (profile.certifications ?? []).filter((c) => c.name);
 const awards = (profile.awards ?? []).filter((a) => a.title);
+const oss = (profile.openSource ?? []).filter((x) => x.repo && x.what).slice(0, 5);
 const talks = (profile.talks ?? []).filter((x) => x.title).slice(0, 4);
 const languages = (profile.languages ?? []).filter((l) => l.name);
 const interests = (profile.interests ?? []).filter((x) => x.name);
@@ -124,6 +126,18 @@ const numbers = [
                   </article>
                 );
               })}
+            </section>
+          )}
+
+          {oss.length > 0 && (
+            <section>
+              <h2>Open source</h2>
+              <ul class="plain">
+                {oss.map((x) => {
+                  const home = ossHome(x);
+                  return <li><b>{home ? <a href={home}>{x.repo}</a> : x.repo}</b> — {x.url && x.url !== home ? <a href={x.url}>{x.what}</a> : x.what} <span class="meta">{dot(x.stars ? `★ ${compact(x.stars)}` : undefined, x.prs && x.prs > 1 ? `${x.prs} PRs` : undefined, x.year)}</span></li>;
+                })}
+              </ul>
             </section>
           )}
 

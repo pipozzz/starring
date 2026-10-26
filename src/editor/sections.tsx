@@ -429,6 +429,44 @@ const TALK_KINDS = [
   { id: 'book', label: 'Book' },
 ] as const;
 
+const OSS_KINDS = [
+  { id: 'code', label: 'Code' },
+  { id: 'docs', label: 'Docs' },
+  { id: 'translation', label: 'Translation' },
+  { id: 'design', label: 'Design' },
+  { id: 'maintainer', label: 'Maintainer' },
+] as const;
+
+export function OpenSourceSection({ p, up, issues, notify }: SectionProps) {
+  return (
+    <>
+      <p className="ed-lead">Your cameos in other people's projects: a merged PR, a translation, docs, a maintainer role. Big names here say a lot. <b>Import from GitHub</b> finds your merged pull requests for you.</p>
+      <ListEditor
+        items={p.openSource ?? []}
+        onChange={(openSource) => up({ openSource })}
+        make={() => ({ repo: '', what: '', kind: 'code' as const, year: THIS_YEAR })}
+        title={(x) => x.repo}
+        meta={(x) => <span className="ed-pill">{x.kind ?? 'code'}</span>}
+        addLabel="Add contribution"
+        empty="E.g. liketrek/TREK — Slovak translation, or kubernetes/website — docs fixes."
+        invalid={(i) => has(issues, `openSource.${i}.`)}
+        onRemove={(x) => notify(`Removed ${x.repo || 'contribution'}`, true)}
+        render={(x, set, i) => (
+          <div className="ed-grid">
+            <Text label="Project" value={x.repo} onChange={(repo) => set({ repo })} placeholder="owner/name" hint="owner/name on GitHub shows the project's logo" error={issues[`openSource.${i}.repo`]} />
+            <Num label="Year" value={x.year} min={1950} max={THIS_YEAR + 1} onChange={(year) => set({ year })} error={issues[`openSource.${i}.year`]} />
+            <Text label="What you did" value={x.what} onChange={(what) => set({ what })} placeholder="Slovak translation" error={issues[`openSource.${i}.what`]} wide />
+            <Segmented label="Kind" value={x.kind ?? 'code'} onChange={(kind) => set({ kind })} options={OSS_KINDS.map((k) => ({ ...k }))} />
+            <Num label="Merged PRs" value={x.prs} min={0} max={100000} onChange={(prs) => set({ prs: prs || undefined })} />
+            <Text label="Link" value={x.url} onChange={(url) => set({ url: url || undefined })} placeholder="https://github.com/owner/name/pull/123" error={issues[`openSource.${i}.url`]} wide />
+            <Text label="Logo (optional)" value={x.logo} onChange={(logo) => set({ logo: logo || undefined })} placeholder="https://… — GitHub projects get theirs automatically" error={issues[`openSource.${i}.logo`]} wide />
+          </div>
+        )}
+      />
+    </>
+  );
+}
+
 export function TalksSection({ p, up, issues, notify }: SectionProps) {
   return (
     <ListEditor

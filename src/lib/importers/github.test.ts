@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { blankProfile } from '../model';
-import { GithubImportError, importGithub, usernameFrom } from './github';
+import { GithubImportError, importGithub, prKind, prTitle, usernameFrom } from './github';
+import { ossHome, ossLogo } from '../model';
 
 const realFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = realFetch; });
@@ -65,4 +66,58 @@ test('unknown user and rate limits become readable errors', async () => {
   mockFetch({ '/users/x1': { status: 403, body: {} } });
   await assert.rejects(importGithub('x1'), /rate limit/);
   await assert.rejects(importGithub('not a user!'), /doesn’t look like/);
+});
+
+test('merged PRs to other projects become guest appearances', async () => {
+  const pr = (repo: string, title: string, n: number, closed: string) => ({
+    title, html_url: `https://github.com/${repo}/pull/${n}`, repository_url: `https://api.github.com/repos/${repo}`, closed_at: closed,
+  });
+  const calls = mockFetch({
+    '/search/issues': { body: { items: [
+      pr('liketrek/TREK', 'feat(i18n): add Slovak (sk) translation', 2425, '2026-09-21T10:00:00Z'),
+      pr('acme/tool', 'fix: retry on 429', 7, '2025-02-01T00:00:00Z'),
+      pr('acme/tool', 'docs: explain retries', 9, '2025-03-01T00:00:00Z'),
+    ] } },
+    '/repos/liketrek/TREK': { body: { stargazers_count: 15091 } },
+    '/repos/acme/tool': { body: { stargazers_count: 40 } },
+    '/users/Octo-Dev/repos': { body: repos },
+    '/users/Octo-Dev': { body: user },
+  });
+  const base = { ...blankProfile(), openSource: [{ repo: 'by/hand', what: 'Kept' }, { repo: 'liketrek/trek', what: 'Old text' }] };
+  const { profile, notes } = await importGithub('Octo-Dev', { base });
+  assert.ok(calls.some((c) => decodeURIComponent(c).includes('is:pr is:merged author:Octo-Dev -user:Octo-Dev')));
+  assert.deepEqual(profile.openSource?.map((o) => o.repo), ['liketrek/TREK', 'acme/tool', 'by/hand'], 'biggest first, hand-made kept, re-imported replaced');
+  const [trek, tool] = profile.openSource!;
+  assert.equal(trek.what, 'Add Slovak (sk) translation');
+  assert.equal(trek.kind, 'translation');
+  assert.equal(trek.url, 'https://github.com/liketrek/TREK/pull/2425');
+  assert.equal(trek.stars, 15091);
+  assert.equal(trek.year, 2026);
+  assert.equal(tool.prs, 2);
+  assert.equal(tool.what, 'Explain retries and 1 more');
+  assert.match(tool.url!, /^https:\/\/github\.com\/acme\/tool\/pulls\?q=/);
+  assert.ok(notes.some((n) => /Guest appearances/.test(n)));
+});
+
+test('a failing PR search never breaks the import', async () => {
+  mockFetch({ '/search/issues': { status: 403, body: {} }, '/users/Octo-Dev/repos': { body: repos }, '/users/Octo-Dev': { body: user } });
+  const { profile } = await importGithub('Octo-Dev');
+  assert.deepEqual(profile.openSource, []);
+});
+
+test('PR titles lose their conventional-commit prefix', () => {
+  assert.equal(prTitle('feat(i18n): add Slovak (sk) translation'), 'Add Slovak (sk) translation');
+  assert.equal(prTitle('[docs] fix: typo'), 'Typo');
+  assert.equal(prTitle('Add a thing'), 'Add a thing');
+  assert.equal(prKind(['Update README']), 'docs');
+  assert.equal(prKind(['Add German locale']), 'translation');
+  assert.equal(prKind(['Speed up parser']), 'code');
+});
+
+test('project logo and home come from the GitHub owner', () => {
+  assert.equal(ossLogo({ repo: 'liketrek/TREK', what: 'x' }), 'https://avatars.githubusercontent.com/liketrek?s=96');
+  assert.equal(ossHome({ repo: 'liketrek/TREK', what: 'x', url: 'https://github.com/liketrek/TREK/pull/1' }), 'https://github.com/liketrek/TREK');
+  assert.equal(ossLogo({ repo: 'GNOME', what: 'x' }), undefined);
+  assert.equal(ossLogo({ repo: 'gitlab-org/gitlab', what: 'x', url: 'https://gitlab.com/gitlab-org/gitlab/-/merge_requests/1' }), undefined);
+  assert.equal(ossLogo({ repo: 'x/y', what: 'x', logo: 'https://e.com/l.png' }), 'https://e.com/l.png');
 });

@@ -106,6 +106,11 @@ projects:
     impact: [600k installs]
     stack: [Electron, Node]
 
+openSource:
+  - { repo: Orbit Router, what: "View transitions for nested routes", kind: code, prs: 6, year: 2025 }
+  - { repo: Kestrel Docs, what: "Slovak and Czech translation", kind: translation, prs: 2, year: 2024 }
+  - { repo: Halyard, what: "Co-maintainer since 2022", kind: maintainer, year: 2022 }
+
 education:
   - { school: Slovak University of Technology, degree: MSc Applied Informatics, from: 2009, to: 2014 }
   - { school: Gymnázium Jura Hronca, degree: Mathematics track, from: 2005, to: 2009 }

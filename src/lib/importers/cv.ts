@@ -22,6 +22,7 @@ export interface CvDraft {
   talks: { title: string; kind: TalkKind; venue: N<string>; year: N<number>; url: N<string> }[];
   languages: { name: string; level: N<string> }[];
   interests: { name: string; note: N<string> }[];
+  openSource: { project: string; what: string; url: N<string>; year: N<number> }[];
 }
 
 const s = (v: unknown, max: number) => {
@@ -100,6 +101,12 @@ export function cvToProfile(d: Partial<CvDraft>): { profile: Profile; notes: str
   p.certifications = arr<CvDraft['certifications'][number]>(d.certifications, 15).flatMap((c) => (s(c.name, 120) ? [{ name: s(c.name, 120)!, ...(s(c.issuer, 80) && { issuer: s(c.issuer, 80) }), ...(yr(c.year) && { year: yr(c.year) }) }] : []));
   p.talks = arr<CvDraft['talks'][number]>(d.talks, 15).flatMap((t) => (s(t.title, 140) ? [{ title: s(t.title, 140)!, kind: KINDS.has(t.kind as TalkKind) ? (t.kind as TalkKind) : 'talk', ...(s(t.venue, 80) && { venue: s(t.venue, 80) }), ...(yr(t.year) && { year: yr(t.year) }), ...(web(t.url) && { url: web(t.url) }) }] : []));
   p.languages = arr<CvDraft['languages'][number]>(d.languages, 10).flatMap((l) => (s(l.name, 40) ? [{ name: s(l.name, 40)!, ...(s(l.level, 30) && { level: s(l.level, 30) }) }] : []));
+  p.openSource = arr<CvDraft['openSource'][number]>(d.openSource, 10).flatMap((o) => {
+    const repo = s(o.project, 80), what = s(o.what, 120);
+    if (!repo || !what) return [];
+    const kind = /translat|locali[sz]|i18n/i.test(what) ? ('translation' as const) : /\bdocs?\b|documentation/i.test(what) ? ('docs' as const) : ('code' as const);
+    return [{ repo, what, kind, ...(web(o.url) && { url: web(o.url) }), ...(yr(o.year) && { year: yr(o.year) }) }];
+  });
   p.interests = arr<CvDraft['interests'][number]>(d.interests, 10).flatMap((x) => (s(x.name, 40) ? [{ name: s(x.name, 40)!, ...(s(x.note, 80) && { note: s(x.note, 80) }) }] : []));
 
   // anything still invalid is dropped rather than shown as an error the person didn't cause
@@ -109,14 +116,14 @@ export function cvToProfile(d: Partial<CvDraft>): { profile: Profile; notes: str
     const items = (p as unknown as Record<string, unknown>)[section];
     if (Array.isArray(items) && /^\d+$/.test(index)) items[Number(index)] = undefined;
   }
-  for (const key of ['experience', 'projects', 'education', 'awards', 'certifications', 'talks', 'languages', 'interests', 'clients'] as const) {
+  for (const key of ['experience', 'projects', 'education', 'awards', 'certifications', 'talks', 'languages', 'interests', 'clients', 'openSource'] as const) {
     (p as unknown as Record<string, unknown[]>)[key] = ((p[key] ?? []) as unknown[]).filter(Boolean);
   }
 
   const count = (n: number, one: string, many = `${one}s`) => (n ? `${n} ${n === 1 ? one : many}` : '');
   const found = [count(p.experience.length, 'role'), count(p.projects.length, 'project'), count(p.clients.length, 'client'), count(p.education.length, 'school'),
     count(Object.values(p.skills).flat().length, 'skill'), count(p.certifications.length, 'certification'), count(p.awards.length, 'award'),
-    count(p.talks.length, 'talk or article', 'talks and articles'), count(p.languages.length, 'language'), count(p.interests.length, 'interest')].filter(Boolean);
+    count(p.talks.length, 'talk or article', 'talks and articles'), count(p.languages.length, 'language'), count(p.interests.length, 'interest'), count(p.openSource!.length, 'open-source contribution')].filter(Boolean);
   const notes = [found.length ? `From your CV: ${found.join(', ')}.` : 'Nothing career-shaped was found in that document.'];
   if (p.projects.some((x) => x.visibility === 'nda')) notes.push('Projects your CV calls confidential are marked NDA — check what you may name.');
   notes.push('Read it through: the AI only uses what your CV says, but it can misread dates or merge roles.');
@@ -154,5 +161,6 @@ export function mergeCv(base: Profile, cv: Profile, mode: 'fresh' | 'merge'): Pr
     talks: append(base.talks, cv.talks, (t) => key(t.title)),
     languages: append(base.languages, cv.languages, (l) => key(l.name)),
     interests: append(base.interests, cv.interests, (x) => key(x.name)),
+    openSource: append(base.openSource, cv.openSource, (o) => key(o.repo)),
   };
 }

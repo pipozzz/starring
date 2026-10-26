@@ -26,6 +26,10 @@ const draft: CvDraft = {
   talks: [{ title: 'Calm deploys', kind: 'talk', venue: 'Devfest', year: 2023, url: 'ftp://nope' }],
   languages: [{ name: 'Slovak', level: 'Native' }],
   interests: [{ name: 'Bouldering', note: null }],
+  openSource: [
+    { project: 'liketrek/TREK', what: 'Slovak translation', url: 'https://github.com/liketrek/TREK/pull/2425', year: 2026 },
+    { project: '', what: 'Nameless', url: null, year: null },
+  ],
 };
 
 test('a CV draft becomes a valid profile: cleaned, NDA-aware, clients collected', () => {
@@ -43,6 +47,7 @@ test('a CV draft becomes a valid profile: cleaned, NDA-aware, clients collected'
   assert.deepEqual(p.skills, { Cloud: ['AWS', 'Kubernetes'] });
   assert.equal(p.certifications![0].year, undefined, 'impossible year dropped');
   assert.equal(p.talks![0].url, undefined, 'non-http link dropped');
+  assert.deepEqual(p.openSource, [{ repo: 'liketrek/TREK', what: 'Slovak translation', kind: 'translation', url: 'https://github.com/liketrek/TREK/pull/2425', year: 2026 }]);
   assert.ok(notes[0].startsWith('From your CV: 2 roles, 2 projects, 2 clients'), notes[0]);
   assert.ok(notes.some((n) => /NDA/.test(n)));
 });
