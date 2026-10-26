@@ -31,11 +31,11 @@ Nothing. The scan runs locally and makes no network requests. The output file co
 | `--reveal-hosts` | Name self-hosted servers instead of anonymising them |
 | `-q, --quiet` | Don't list repos while scanning |
 
-> **Tip for GitHub users:** GitHub Web Flow and pairing tools often record your GitHub noreply address in trailers (e.g. `12345+username@users.noreply.github.com`). Pass it with `-e` so those commits match:
+> **Tip for GitHub users:** when someone adds you as a co-author on GitHub, or a squash merge credits a PR's other committers, the `Co-authored-by:` trailer usually holds your private noreply address (e.g. `12345+username@users.noreply.github.com`). Pass it with `-e` so those commits match:
 > ```bash
 > npx starring-cli scan ~/work -e me@company.com -e 12345+username@users.noreply.github.com --co-authored
 > ```
 
 Commits are counted across all branches, excluding merges. They're de-duplicated by hash, so forks and several clones of the same repo count once.
 
-Requires Node 20+ and `git` 2.22+. No dependencies.
+Requires Node 20+ and `git` (2.22+ for `--co-authored`). No dependencies.
