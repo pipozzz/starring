@@ -139,10 +139,34 @@ export const guestAppearances = async (login: string, token?: string): Promise<O
 const top = (counts: Map<string, number>, n: number) =>
   [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k]) => k);
 
-/** Topics that describe the repo's status or events, not a skill. */
-const NOT_SKILLS = new Set(['hacktoberfest', 'awesome', 'awesome-list', 'good-first-issue', 'help-wanted', 'open-source', 'opensource', 'first-timers-only', 'beginner-friendly']);
+/**
+ * Topics that describe the repo — its status, an event, what kind of thing it is — rather than a
+ * technology someone works with. They stay out of skills and project stacks.
+ */
+const NOT_SKILLS = new Set([
+  'hacktoberfest', 'awesome', 'awesome-list', 'good-first-issue', 'help-wanted', 'open-source', 'opensource', 'first-timers-only', 'beginner-friendly',
+  'devops', 'developer-portfolio', 'portfolio', 'developer-tools', 'devtools', 'self-hosted', 'selfhosted', 'tool', 'tools', 'cli-tool',
+  'app', 'application', 'web', 'website', 'webapp', 'web-app', 'project', 'side-project', 'personal-project', 'demo', 'example', 'template',
+  'boilerplate', 'starter', 'library', 'framework', 'plugin', 'utility', 'utilities', 'hobby', 'learning', 'tutorial', 'homelab', 'resume', 'cv',
+]);
+export const isSkillTopic = (t: string) => !NOT_SKILLS.has(t.toLowerCase());
 
-const prettyTopic = (t: string) => t.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+/** How technologies are spelled, where title case gets it wrong. */
+const SPELLING: Record<string, string> = {
+  javascript: 'JavaScript', typescript: 'TypeScript', nodejs: 'Node.js', 'node-js': 'Node.js', node: 'Node.js', nextjs: 'Next.js', 'next-js': 'Next.js',
+  vuejs: 'Vue.js', nuxtjs: 'Nuxt', reactjs: 'React', github: 'GitHub', 'github-actions': 'GitHub Actions', gitlab: 'GitLab', 'gitlab-ci': 'GitLab CI',
+  graphql: 'GraphQL', postgresql: 'PostgreSQL', postgres: 'Postgres', mysql: 'MySQL', mongodb: 'MongoDB', sqlite: 'SQLite', redis: 'Redis',
+  macos: 'macOS', ios: 'iOS', webassembly: 'WebAssembly', wasm: 'Wasm', openai: 'OpenAI', fastapi: 'FastAPI', jquery: 'jQuery', php: 'PHP',
+  devsecops: 'DevSecOps', mlops: 'MLOps', gitops: 'GitOps', terraform: 'Terraform', opentofu: 'OpenTofu', argocd: 'Argo CD', k8s: 'Kubernetes',
+};
+/** Words written in capitals inside a topic, e.g. aws-lambda → AWS Lambda. */
+const ACRONYMS = new Set(['aws', 'gcp', 'api', 'apis', 'cli', 'ci', 'cd', 'css', 'html', 'js', 'ts', 'ui', 'ux', 'sql', 'ai', 'ml', 'llm', 'llms', 'sdk', 'ssr', 'ssg', 'pwa', 'ecs', 'eks', 'aks', 'gke', 's3', 'iam', 'json', 'yaml', 'http', 'grpc', 'rest', 'iot', 'jwt', 'oauth', 'sso', 'cdn', 'dns', 'vpn', 'ssh', 'tls', 'mcp', 'rag', 'nlp', 'gpu', 'cpu', 'orm', 'erp', 'crm', 'cms', 'ecs']);
+
+export const prettyTopic = (t: string) => {
+  const key = t.toLowerCase();
+  if (SPELLING[key]) return SPELLING[key];
+  return key.split('-').map((w) => SPELLING[w] ?? (ACRONYMS.has(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1))).join(' ');
+};
 
 const toProject = (r: GhRepo): Project => {
   const impact = [
@@ -156,7 +180,7 @@ const toProject = (r: GhRepo): Project => {
     role: 'Author',
     blurb: r.description?.trim() || 'Describe what this does and why it matters.',
     impact,
-    stack: [...new Set([r.language, ...(r.topics ?? []).slice(0, 3).map(prettyTopic)].filter(Boolean) as string[])],
+    stack: [...new Set([r.language, ...(r.topics ?? []).filter(isSkillTopic).slice(0, 3).map(prettyTopic)].filter(Boolean) as string[])],
     url: r.html_url,
   };
 };
@@ -186,7 +210,7 @@ export async function importGithub(input: string, opts: { token?: string; base?:
   const topics = new Map<string, number>();
   own.forEach((r) => {
     if (r.language) langs.set(r.language, (langs.get(r.language) ?? 0) + 1);
-    r.topics?.filter((t) => !NOT_SKILLS.has(t)).forEach((t) => topics.set(t, (topics.get(t) ?? 0) + 1));
+    r.topics?.filter(isSkillTopic).forEach((t) => topics.set(t, (topics.get(t) ?? 0) + 1));
   });
 
   let contribs: Contribution[] = [];

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { blankProfile } from '../model';
-import { GithubImportError, importGithub, prKind, prTitle, usernameFrom } from './github';
+import { GithubImportError, importGithub, prKind, prTitle, prettyTopic, usernameFrom } from './github';
 import { ossHome, ossLogo } from '../model';
 
 const realFetch = globalThis.fetch;
@@ -120,4 +120,21 @@ test('project logo and home come from the GitHub owner', () => {
   assert.equal(ossLogo({ repo: 'GNOME', what: 'x' }), undefined);
   assert.equal(ossLogo({ repo: 'gitlab-org/gitlab', what: 'x', url: 'https://gitlab.com/gitlab-org/gitlab/-/merge_requests/1' }), undefined);
   assert.equal(ossLogo({ repo: 'x/y', what: 'x', logo: 'https://e.com/l.png' }), 'https://e.com/l.png');
+});
+
+test('project stacks keep technologies and drop labels like hacktoberfest or devops', async () => {
+  const labelled = [{ ...repos[0], name: 'goliash', language: 'Go', topics: ['devops', 'aws-lambda', 'hacktoberfest', 'docker', 'developer-portfolio', 'kubernetes'] }];
+  mockFetch({ '/users/Octo-Dev/repos': { body: labelled }, '/users/Octo-Dev': { body: user } });
+  const { profile } = await importGithub('Octo-Dev');
+  assert.deepEqual(profile.projects?.[0].stack, ['Go', 'AWS Lambda', 'Docker', 'Kubernetes']);
+  assert.deepEqual(profile.skills?.Topics, ['AWS Lambda', 'Docker', 'Kubernetes']);
+});
+
+test('topics are spelled the way the technologies are', () => {
+  assert.equal(prettyTopic('aws-lambda'), 'AWS Lambda');
+  assert.equal(prettyTopic('nodejs'), 'Node.js');
+  assert.equal(prettyTopic('github-actions'), 'GitHub Actions');
+  assert.equal(prettyTopic('postgresql'), 'PostgreSQL');
+  assert.equal(prettyTopic('rest-api'), 'REST API');
+  assert.equal(prettyTopic('web-components'), 'Web Components');
 });
