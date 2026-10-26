@@ -107,6 +107,28 @@ const device = (ua?: string | null) => {
       </section>
     )}
 
+    {stats && stats !== 'error' && stats.trailer && (
+      <section class="card">
+        <p class="mono muted">Your trailer · last {stats.days} days</p>
+        {stats.trailer.views > 0 ? (
+          <>
+            <div class="nums trailer-nums">
+              <p><b class="display">{stats.trailer.views.toLocaleString('en')}</b> <span class="mono muted">views</span></p>
+              <p><b class="display">{stats.trailer.plays.toLocaleString('en')}</b> <span class="mono muted">played</span></p>
+              <p>
+                <b class="display">{stats.trailer.completes.toLocaleString('en')}</b> <span class="mono muted">watched to the end</span>
+                {stats.trailer.plays > 0 && <span class="mono muted"> · {Math.round((100 * stats.trailer.completes) / stats.trailer.plays)}%</span>}
+              </p>
+              <p><b class="display">{(stats.trailer.downloads + stats.trailer.shares).toLocaleString('en')}</b> <span class="mono muted">downloaded or shared</span></p>
+            </div>
+            <p class="muted">Counted on {own?.handle ? `/${own.handle}/trailer` : 'your trailer page'}. Views of a video you uploaded to LinkedIn or Instagram live in that network’s own post stats.</p>
+          </>
+        ) : (
+          <p class="muted">Nobody has watched your trailer yet. <a href={link(`${own!.handle}/trailer/`)}>Make one</a> and post it — video travels further than a link.</p>
+        )}
+      </section>
+    )}
+
     {weekly !== null && (
       <section class="card">
         <p class="mono muted">Email</p>
@@ -311,4 +333,5 @@ const device = (ua?: string | null) => {
   .tops { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
   .tops ul { list-style: none; display: grid; gap: 4px; margin-top: 6px; }
   .tops li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .trailer-nums { flex-wrap: wrap; }
 </style>

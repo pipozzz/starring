@@ -21,11 +21,29 @@ interface Props {
   site: string;
   theme: { accent: string; scheme: 'dark' | 'light' };
   genre?: string;
+  /** The owner's own Plausible (plausibleTarget), which gets the same events. */
+  ownerAnalytics?: { domain: string; endpoint: string } | null;
+}
+
+type Goal = 'Trailer play' | 'Trailer complete' | 'Trailer download' | 'Trailer share';
+
+/** One event to the instance's Plausible (when it runs here) and the owner's own, if any. */
+function track(goal: Goal, props: Record<string, string>, owner?: Props['ownerAnalytics']) {
+  const w = window as unknown as { plausible?: (name: string, o?: { props: Record<string, string> }) => void };
+  try { w.plausible?.(goal, { props }); } catch { /* analytics never breaks the player */ }
+  if (owner) {
+    fetch(owner.endpoint, {
+      method: 'POST',
+      keepalive: true,
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ name: goal, url: location.href, domain: owner.domain, referrer: document.referrer || null, props }),
+    }).catch(() => {});
+  }
 }
 
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-export default function Player({ p, url, trailerUrl, site, theme, genre: initialGenre }: Props) {
+export default function Player({ p, url, trailerUrl, site, theme, genre: initialGenre, ownerAnalytics }: Props) {
   const [genreId, setGenreId] = useState(getGenre(initialGenre).id);
   const [format, setFormat] = useState<Format>('landscape');
   const [playing, setPlaying] = useState(false);
@@ -38,6 +56,8 @@ export default function Player({ p, url, trailerUrl, site, theme, genre: initial
   const [canShareFiles, setCanShareFiles] = useState(false);
   /** The last video made, so Share after Download (or twice) doesn't render it again. */
   const made = useRef<{ key: string; file: File } | null>(null);
+  /** Plays and completions count once per visit. */
+  const counted = useRef({ play: false, complete: false, watched: 0 });
   const canvas = useRef<HTMLCanvasElement>(null);
   const images = useRef(new Map<string, HTMLImageElement>());
   const abort = useRef<AbortController | null>(null);
@@ -92,6 +112,14 @@ export default function Player({ p, url, trailerUrl, site, theme, genre: initial
   }, [w, h, paint]);
 
   useEffect(() => {
+    if (playing && !counted.current.play) {
+      counted.current.play = true;
+      track('Trailer play', { genre: genreId }, ownerAnalytics);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing]);
+
+  useEffect(() => {
     if (!ready || !playing) { paint(clock.current.t); return; }
     let raf = 0;
     clock.current.last = performance.now();
@@ -99,9 +127,18 @@ export default function Player({ p, url, trailerUrl, site, theme, genre: initial
       const dt = (now - clock.current.last) / 1000;
       clock.current.last = now;
       clock.current.t = Math.min(tr.total, clock.current.t + dt);
+      counted.current.watched += dt;
       paint(clock.current.t);
       setT(clock.current.t);
-      if (clock.current.t >= tr.total) { setPlaying(false); return; }
+      if (clock.current.t >= tr.total) {
+        setPlaying(false);
+        // "watched to the end" means seen, not skipped to: at least 70% of it actually played
+        if (!counted.current.complete && counted.current.watched >= tr.total * 0.7) {
+          counted.current.complete = true;
+          track('Trailer complete', { genre: genreId }, ownerAnalytics);
+        }
+        return;
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -144,6 +181,7 @@ export default function Player({ p, url, trailerUrl, site, theme, genre: initial
     if (!file) return;
     const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(file), download: file.name });
     a.click();
+    track('Trailer download', { genre: genre.id, format: FORMATS[format].label }, ownerAnalytics);
     setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
   };
 
@@ -152,12 +190,17 @@ export default function Player({ p, url, trailerUrl, site, theme, genre: initial
     if (!file) return;
     try {
       await navigator.share({ files: [file], title: `${p.profile.name} — the trailer`, text: `${pitch} ${trailerUrl}` });
+      track('Trailer share', { via: 'video', genre: genre.id, format: FORMATS[format].label }, ownerAnalytics);
     } catch (e) {
       if ((e as Error).name !== 'AbortError') setError(`Sharing didn't work here — download the video and post it instead.`);
     }
   };
 
-  const copyLink = () => navigator.clipboard.writeText(trailerUrl).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); });
+  const copyLink = () => navigator.clipboard.writeText(trailerUrl).then(() => {
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+    track('Trailer share', { via: 'link' }, ownerAnalytics);
+  });
   const shareTo = [
     { label: 'LinkedIn', href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(trailerUrl)}` },
     { label: 'X', href: `https://x.com/intent/post?text=${encodeURIComponent(pitch)}&url=${encodeURIComponent(trailerUrl)}` },
@@ -250,7 +293,7 @@ export default function Player({ p, url, trailerUrl, site, theme, genre: initial
           <button type="button" className="tr-btn" onClick={copyLink}>{copied ? 'Copied ✓' : 'Copy link'}</button>
         </div>
         <div className="tr-row">
-          {shareTo.map((x) => <a key={x.label} className="tr-btn" href={x.href} target="_blank" rel="noreferrer">{x.label} ↗</a>)}
+          {shareTo.map((x) => <a key={x.label} className="tr-btn" href={x.href} target="_blank" rel="noreferrer" onClick={() => track('Trailer share', { via: x.label.toLowerCase() }, ownerAnalytics)}>{x.label} ↗</a>)}
         </div>
       </div>
     </div>

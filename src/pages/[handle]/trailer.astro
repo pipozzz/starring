@@ -3,8 +3,9 @@
 // downloadable as an MP4 for LinkedIn, Stories and the rest. ?genre=noir picks the cut.
 import Layout from '../../components/Layout.astro';
 import Player from '../../trailer/Player';
+import ProfileAnalytics from '../../components/ProfileAnalytics.astro';
 import { buildScript, transcript } from '../../trailer/script';
-import { SERVER_MODE, store, type Profile } from '../../lib/profiles';
+import { SERVER_MODE, plausibleTarget, store, type Profile } from '../../lib/profiles';
 import { getTheme } from '../../themes';
 import { link, pageLink } from '../../lib/url';
 import { publicBase } from '../../lib/site';
@@ -44,12 +45,13 @@ const image = new URL(link(`og/${profile.handle}.png`), publicBase(Astro.site, A
       <span class="muted">Starring presents</span>
     </nav>
     <h1 class="display">The trailer</h1>
-    <Player client:load p={profile} url={stage} trailerUrl={trailerUrl} site={site} theme={{ accent: theme.tokens.accent, scheme: theme.scheme }} genre={genre} />
+    <Player client:load p={profile} url={stage} trailerUrl={trailerUrl} site={site} ownerAnalytics={plausibleTarget(profile)} theme={{ accent: theme.tokens.accent, scheme: theme.scheme }} genre={genre} />
     <section class="script" aria-labelledby="script-title">
       <h2 id="script-title" class="mono">Transcript</h2>
       <ol>{lines.map((l) => <li>{l}</li>)}</ol>
     </section>
   </main>
+  <ProfileAnalytics p={profile} />
 </Layout>
 
 <style>

@@ -5,7 +5,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { db, schema } from './db';
 import { mailEnabled, sendMail, type Mail } from './mail';
-import { lastWeeks, statsConfig, weekStats, type WeekStats } from './stats';
+import { lastWeeks, statsConfig, trailerLine, weekStats, type WeekStats } from './stats';
 
 const { user, profile, emailPref, digestSent } = schema;
 // a stage's path (like pageLink, without pulling in import.meta.env so tests can load this)
@@ -50,6 +50,7 @@ export function digestMail(to: { email: string; name: string }, handle: string, 
     ['Page views', String(s.pageviews)],
     ...(s.sources.length ? [['Came from', s.sources.map((x) => `${x.name} ${x.visitors}`).join(' · ')] as [string, string]] : []),
     ...(s.countries.length ? [['Countries', s.countries.map((x) => x.name).join(' · ')] as [string, string]] : []),
+    ...(s.trailer?.views ? [['Your trailer', trailerLine(s.trailer)] as [string, string]] : []),
   ];
   return {
     to: to.email,
