@@ -108,33 +108,102 @@ export const prKind = (titles: string[]): OssKind => {
   return 'code';
 };
 
-/** Merged PRs to repos the user doesn't own, grouped per repo, biggest projects first. */
-export const guestAppearances = async (login: string, token?: string): Promise<OpenSource[]> => {
-  const q = encodeURIComponent(`is:pr is:merged author:${login} -user:${login}`);
-  const found = await get<{ items: GhSearchPr[] }>(`/search/issues?q=${q}&per_page=100&sort=updated`, token).catch(() => ({ items: [] }));
-  const byRepo = new Map<string, GhSearchPr[]>();
-  for (const pr of found.items) {
-    const repo = pr.repository_url.replace(`${API}/repos/`, '');
-    byRepo.set(repo, [...(byRepo.get(repo) ?? []), pr]);
+interface GhSearchCommit { repository: { full_name: string }; commit: { author: { date: string } } }
+interface GhRepoInfo {
+  full_name: string; name: string; description: string | null; language: string | null; topics?: string[]; stargazers_count: number;
+  private: boolean; fork: boolean; archived: boolean; html_url: string; homepage: string | null; pushed_at: string; owner: { login: string; type: string };
+}
+
+/**
+ * Repos the user doesn't own but worked on — found by their merged PRs and their commits — split
+ * into the user's own projects that live under an organisation (they're the top contributor:
+ * "Creator") and guest appearances in other people's projects. Biggest projects first.
+ */
+export const otherRepos = async (login: string, token?: string): Promise<{ guest: OpenSource[]; own: { project: Project; stars: number }[] }> => {
+  const not = `-user:${login}`;
+  const [prs, commits] = await Promise.all([
+    get<{ items: GhSearchPr[] }>(`/search/issues?q=${encodeURIComponent(`is:pr is:merged author:${login} ${not}`)}&per_page=100&sort=updated`, token).catch(() => ({ items: [] })),
+    get<{ items: GhSearchCommit[] }>(`/search/commits?q=${encodeURIComponent(`author:${login} ${not}`)}&per_page=100&sort=author-date`, token).catch(() => ({ items: [] })),
+  ]);
+  const byRepo = new Map<string, { prs: GhSearchPr[]; commits: number; last: string }>();
+  const at = (repo: string) => byRepo.get(repo) ?? (byRepo.set(repo, { prs: [], commits: 0, last: '' }), byRepo.get(repo)!);
+  for (const pr of prs.items ?? []) {
+    const r = at(pr.repository_url.replace(`${API}/repos/`, ''));
+    r.prs.push(pr);
+    if ((pr.closed_at ?? '') > r.last) r.last = pr.closed_at ?? '';
   }
-  const repos = [...byRepo.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 7);
-  const stars = await Promise.all(repos.map(([repo]) => get<{ stargazers_count: number; private: boolean }>(`/repos/${repo}`, token).catch(() => null)));
-  return repos
-    .map(([repo, prs], i): OpenSource => {
-      const latest = [...prs].sort((a, b) => (b.closed_at ?? '').localeCompare(a.closed_at ?? ''))[0];
-      return {
-        repo,
-        what: prs.length === 1 ? prTitle(latest.title) : `${prTitle(latest.title)} and ${prs.length - 1} more`,
-        kind: prKind(prs.map((x) => x.title)),
-        url: prs.length === 1 ? latest.html_url : `https://github.com/${repo}/pulls?q=${encodeURIComponent(`is:pr is:merged author:${login}`)}`,
-        year: new Date(latest.closed_at ?? Date.now()).getFullYear(),
-        prs: prs.length,
-        ...(stars[i]?.stargazers_count && { stars: stars[i]!.stargazers_count }),
-      };
-    })
-    .sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0))
-    .slice(0, 6);
+  for (const c of commits.items ?? []) {
+    const r = at(c.repository.full_name);
+    r.commits++;
+    if (c.commit.author.date > r.last) r.last = c.commit.author.date;
+  }
+  // every repo with a merged PR (up to 10), plus the repos with the most commits
+  const entries = [...byRepo.entries()];
+  const withPrs = entries.filter(([, w]) => w.prs.length).sort((a, b) => b[1].prs.length - a[1].prs.length).slice(0, 10);
+  const byCommits = entries.filter(([, w]) => !w.prs.length).sort((a, b) => b[1].commits - a[1].commits).slice(0, 6);
+  const candidates = [...withPrs, ...byCommits];
+  const details = await Promise.all(
+    candidates.map(([repo]) => Promise.all([
+      get<GhRepoInfo>(`/repos/${repo}`, token).catch(() => null),
+      get<{ login: string; contributions: number }[]>(`/repos/${repo}/contributors?per_page=10`, token).catch(() => []),
+    ])),
+  );
+
+  const guest: OpenSource[] = [];
+  const own: { project: Project; stars: number }[] = [];
+  const me = login.toLowerCase();
+  const peopleOf = (i: number) => (Array.isArray(details[i][1]) ? details[i][1] : []);
+  const leads = (i: number) => !!details[i][0] && peopleOf(i)[0]?.login?.toLowerCase() === me;
+  // organisations where the user leads at least one public, original repo are theirs (or their team's)
+  const ownOrgs = new Set(candidates.filter((_, i) => leads(i) && !details[i][0]!.fork && !details[i][0]!.private).map(([repo]) => repo.split('/')[0].toLowerCase()));
+  candidates.forEach(([repo, w], i) => {
+    const [info] = details[i];
+    // a private repo under an organisation is an employer's or a client's: never on a public page
+    if (info?.private) return;
+    const mine = peopleOf(i).find((p) => p.login?.toLowerCase() === me);
+    // theirs: an original repo they lead, or any repo they worked on in an organisation that's theirs
+    // (a fork there too: in their own org it's their copy, e.g. a website forked from a template)
+    if (info && ((leads(i) && !info.fork) || (mine && ownOrgs.has(info.owner.login.toLowerCase())))) {
+      own.push({ stars: info.stargazers_count, project: {
+        title: info.name,
+        year: new Date(info.pushed_at).getFullYear(),
+        visibility: 'public',
+        role: leads(i) ? 'Creator' : 'Core team',
+        blurb: info.description?.trim() || `Built under ${info.owner.login}.`,
+        impact: [
+          info.stargazers_count > 0 && `${info.stargazers_count.toLocaleString('en')} ${info.stargazers_count === 1 ? 'star' : 'stars'}`,
+          (mine?.contributions ?? 0) > 9 && `${mine!.contributions.toLocaleString('en')} commits`,
+        ].filter(Boolean) as string[],
+        stack: [...new Set([info.language, ...(info.topics ?? []).filter((t) => isSkillTopic(t) && !sameName(t, info)).slice(0, 3).map(prettyTopic)].filter(Boolean) as string[])],
+        url: info.html_url,
+        ...(info.homepage && /^https?:\/\//.test(info.homepage) && { live: info.homepage }),
+      } });
+      return;
+    }
+    const latest = [...w.prs].sort((a, b) => (b.closed_at ?? '').localeCompare(a.closed_at ?? ''))[0];
+    guest.push({
+      repo,
+      what: latest
+        ? w.prs.length === 1 ? prTitle(latest.title) : `${prTitle(latest.title)} and ${w.prs.length - 1} more`
+        : `${w.commits} ${w.commits === 1 ? 'commit' : 'commits'}`,
+      kind: prKind(w.prs.map((x) => x.title)),
+      url: latest
+        ? w.prs.length === 1 ? latest.html_url : `https://github.com/${repo}/pulls?q=${encodeURIComponent(`is:pr is:merged author:${login}`)}`
+        : `https://github.com/${repo}/commits?author=${encodeURIComponent(login)}`,
+      year: new Date(w.last || Date.now()).getFullYear(),
+      ...(w.prs.length && { prs: w.prs.length }),
+      ...(info?.stargazers_count && { stars: info.stargazers_count }),
+    });
+  });
+  const byStars = <T extends { stars?: number }>(a: T, b: T) => (b.stars ?? 0) - (a.stars ?? 0);
+  return { guest: guest.sort(byStars).slice(0, 6), own };
 };
+
+/** A topic that's just the repo's or its owner's name ("nomploy" on Nomploy/nomad-packs). */
+const sameName = (t: string, info: { name: string; owner: { login: string } }) => [info.name, info.owner.login].some((n) => n.toLowerCase() === t.toLowerCase());
+
+/** Merged PRs and commits in repos the user doesn't own: guest appearances only. */
+export const guestAppearances = async (login: string, token?: string) => (await otherRepos(login, token)).guest;
 
 const top = (counts: Map<string, number>, n: number) =>
   [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k]) => k);
@@ -149,7 +218,7 @@ const NOT_SKILLS = new Set([
   'app', 'application', 'web', 'website', 'webapp', 'web-app', 'project', 'side-project', 'personal-project', 'demo', 'example', 'template',
   'boilerplate', 'starter', 'library', 'framework', 'plugin', 'utility', 'utilities', 'hobby', 'learning', 'tutorial', 'homelab', 'resume', 'cv',
 ]);
-export const isSkillTopic = (t: string) => !NOT_SKILLS.has(t.toLowerCase());
+export const isSkillTopic = (t: string) => !NOT_SKILLS.has(t.toLowerCase()) && !/-alternative$/i.test(t);
 
 /** How technologies are spelled, where title case gets it wrong. */
 const SPELLING: Record<string, string> = {
@@ -180,7 +249,7 @@ const toProject = (r: GhRepo): Project => {
     role: 'Author',
     blurb: r.description?.trim() || 'Describe what this does and why it matters.',
     impact,
-    stack: [...new Set([r.language, ...(r.topics ?? []).filter(isSkillTopic).slice(0, 3).map(prettyTopic)].filter(Boolean) as string[])],
+    stack: [...new Set([r.language, ...(r.topics ?? []).filter((t) => isSkillTopic(t) && t.toLowerCase() !== r.name.toLowerCase()).slice(0, 3).map(prettyTopic)].filter(Boolean) as string[])],
     url: r.html_url,
   };
 };
@@ -194,17 +263,22 @@ export async function importGithub(input: string, opts: { token?: string; base?:
   const token = opts.token?.trim() || undefined;
   const notes: string[] = [];
 
-  const [user, repos, guest] = await Promise.all([
+  const [user, repos, other] = await Promise.all([
     get<GhUser>(`/users/${login}`, token),
     get<GhRepo[]>(`/users/${login}/repos?per_page=100&sort=pushed&type=owner`, token),
-    guestAppearances(login, token),
+    otherRepos(login, token),
   ]);
+  const guest = other.guest;
 
   const own = repos.filter((r) => !r.fork && !r.archived);
-  const featured = [...own]
-    .sort((a, b) => b.stargazers_count - a.stargazers_count || b.pushed_at.localeCompare(a.pushed_at))
-    .slice(0, 4)
-    .map(toProject);
+  // the user's best repos, theirs or under an organisation where they're the top contributor
+  const featured = [
+    ...own.map((r) => ({ project: toProject(r), stars: r.stargazers_count, pushed: r.pushed_at })),
+    ...other.own.map((o) => ({ ...o, pushed: `${o.project.year}` })),
+  ]
+    .sort((a, b) => b.stars - a.stars || b.pushed.localeCompare(a.pushed))
+    .slice(0, 6)
+    .map((x) => x.project);
 
   const langs = new Map<string, number>();
   const topics = new Map<string, number>();
@@ -263,7 +337,9 @@ export async function importGithub(input: string, opts: { token?: string; base?:
   };
 
   if (user.company?.trim()) notes.push(`GitHub lists “${user.company.trim().replace(/^@/, '')}” as your company — add it to the Timeline with dates.`);
-  if (guest.length) notes.push(`Found merged pull requests in ${guest.length} other project${guest.length > 1 ? 's' : ''} — they're under Guest appearances. Reword what you did if the PR title doesn't say it.`);
+  if (guest.length) notes.push(`Found your work in ${guest.length} other project${guest.length > 1 ? 's' : ''} — they're under Guest appearances. Reword what you did if the PR title doesn't say it.`);
+  const fromOrgs = other.own.map((o) => o.project).filter((p) => featured.includes(p)).map((p) => p.title);
+  if (fromOrgs.length) notes.push(`${fromOrgs.join(', ')} ${fromOrgs.length > 1 ? 'live' : 'lives'} under an organisation, but ${fromOrgs.length > 1 ? 'they’re' : 'it’s'} yours (you're the top contributor) — added to Featured work.`);
   if (!featured.length) notes.push('No public repositories to feature yet — add your best private or NDA work by hand.');
   if (profile.profile.role === 'Software Engineer' && base.profile.role !== 'Software Engineer') {
     notes.push('Role was set to “Software Engineer” — make it yours.');
