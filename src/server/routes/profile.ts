@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getSession } from '../auth';
 import { fail, json, sameOrigin } from '../http';
-import { ProfileError, deleteProfile, getByUser, saveProfile, setPublished } from '../profiles';
+import { ProfileError, deleteProfile, discardChanges, getByUser, saveProfile, setPublished } from '../profiles';
 import { isAdmin } from '../blocklist';
 import { prunePhotos } from '../photos';
 import { storage } from '../storage';
@@ -40,19 +40,23 @@ export const PUT: APIRoute = async ({ request }) => {
     const saved = await saveProfile(g.userId, { handle: body.handle, data: body.data, published: body.published }, { admin: g.admin });
     // photos this profile no longer shows can go
     const s = storage();
-    if (s) prunePhotos(s, g.userId, saved.data?.profile?.photo).catch((e) => console.error('[photos] prune failed', e));
+    if (s) prunePhotos(s, g.userId, [saved.data?.profile?.photo, saved.live?.profile?.photo]).catch((e) => console.error('[photos] prune failed', e));
     return json(saved);
   } catch (e) {
     return handleErrors(e);
   }
 };
 
-/** PATCH { published } — publish / unpublish without resending the document. */
+/**
+ * PATCH { published } — publish the current draft (true) or take the page down (false).
+ * PATCH { discard: true } — throw the draft away and go back to the live version.
+ */
 export const PATCH: APIRoute = async ({ request }) => {
   const g = await guard(request);
   if (g.error) return g.error;
   try {
-    const body = (await request.json()) as { published?: boolean };
+    const body = (await request.json()) as { published?: boolean; discard?: boolean };
+    if (body.discard) return json(await discardChanges(g.userId));
     return json(await setPublished(g.userId, !!body.published));
   } catch (e) {
     return handleErrors(e);

@@ -36,6 +36,13 @@
       "when": 1792609965942,
       "tag": "0004_weekly_digest",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793091911380,
+      "tag": "0005_draft_and_live",
+      "breakpoints": true
     }
   ]
 }

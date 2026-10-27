@@ -18,7 +18,8 @@ let p = (Astro.props as { p?: Profile }).p;
 if (SERVER_MODE) {
   p = await store.get(Astro.params.handle!);
   if (!p) return new Response(null, { status: 404 });
-  Astro.response.headers.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=600');
+  // browsers always re-check (an owner sees their publish at once); shared caches may hold it a minute
+  Astro.response.headers.set('Cache-Control', 'public, max-age=0, must-revalidate, s-maxage=60, stale-while-revalidate=600');
 }
 const profile = p!;
 const theme = getTheme(profile.theme);

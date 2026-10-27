@@ -32,8 +32,8 @@ export const POST: APIRoute = async ({ request }) => {
     await s.put(key, bytes, 'image/jpeg');
     const url = new URL(s.url(key), publicBase(undefined, new URL(request.url))).href;
     // the previous photo goes, unless the saved profile still shows it
-    const current = (await getByUser(session.user.id))?.data?.profile?.photo;
-    prunePhotos(s, session.user.id, current).catch((e) => console.error('[photos] prune failed', e));
+    const own = await getByUser(session.user.id);
+    prunePhotos(s, session.user.id, [own?.data?.profile?.photo, own?.live?.profile?.photo]).catch((e) => console.error('[photos] prune failed', e));
     return json({ url, width, height });
   } catch (e) {
     if (e instanceof ImageError) return fail(400, e.message);

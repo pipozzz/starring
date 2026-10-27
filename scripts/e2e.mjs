@@ -180,6 +180,22 @@ try {
     assert.equal(oe.status, 200);
     assert.equal((await oe.json()).type, 'rich');
   });
+  await step('edits stay a draft until published; discard goes back to the live version', async () => {
+    const named = (name) => ({ handle, data: { ...profile, handle, profile: { ...profile.profile, name } } });
+    await expect(await call('PUT', '/api/profile', named('Eve Draftwriter')), 200);
+    assert.ok(!(await (await call('GET', `/${handle}/`)).text()).includes('Draftwriter'), 'a saved draft is not public');
+    const own = await expect(await call('GET', '/api/profile'), 200);
+    assert.equal(own.changes, true);
+    assert.equal(own.live.profile.name, 'Eve Tester');
+    await expect(await call('PATCH', '/api/profile', { published: true }), 200);
+    assert.ok((await (await call('GET', `/${handle}/`)).text()).includes('Draftwriter'), 'publish puts the draft live');
+    await expect(await call('PUT', '/api/profile', named('Eve Scrapped')), 200);
+    const back = await expect(await call('PATCH', '/api/profile', { discard: true }), 200);
+    assert.equal(back.data.profile.name, 'Eve Draftwriter', 'discard restores the live version');
+    assert.equal(back.changes, false);
+    // put the original back for the steps below
+    await expect(await call('PUT', '/api/profile', { ...named('Eve Tester'), published: true }), 200);
+  });
   await step('photo upload: EXIF stripped, served inertly, on the page and poster (when STORAGE is set)', async () => {
     const me = await expect(await call('GET', '/api/me'), 200);
     if (!me.features.uploads) { console.log('    (skipped: STORAGE not configured)'); return; }

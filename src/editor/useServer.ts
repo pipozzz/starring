@@ -1,5 +1,6 @@
 // Server mode sync for the editor: who's signed in, autosave to /api/profile,
-// claim a handle, publish. In static mode this hook is inert.
+// claim a handle, publish. Autosave only touches the draft; the public sees the live
+// version until the owner publishes (or discards their changes). Inert in static mode.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { validate, type Profile } from '../lib/model';
 
@@ -17,9 +18,13 @@ export type SyncStatus =
 
 interface Me {
   user: { id: string; name: string; email: string; image?: string | null; githubLinked?: boolean } | null;
-  profile: { handle: string; published: boolean; updatedAt: string; data: Profile } | null;
+  profile: { handle: string; published: boolean; updatedAt: string; data: Profile; live: Profile | null } | null;
   features: { allowSignup: boolean; password: boolean; github: boolean; gitlab: boolean; /** 'anthropic' | 'openai' when the instance reads CVs with AI */ cvImport?: string | null; /** the instance stores uploads (STORAGE) */ uploads?: boolean };
 }
+
+/** The signed-in user's stage: its handle, whether it's public, and the version the public sees. */
+export interface Own { handle: string; published: boolean; live: Profile | null }
+const toOwn = (r: Own): Own => ({ handle: r.handle, published: r.published, live: r.live ?? null });
 
 const api = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
   const res = await fetch(path, {
@@ -36,7 +41,7 @@ const api = async <T>(method: string, path: string, body?: unknown): Promise<T> 
 export function useServer(p: Profile, onRemoteProfile: (p: Profile) => void, keepLocal: boolean) {
   const [status, setStatus] = useState<SyncStatus>(HOSTED ? 'loading' : 'off');
   const [me, setMe] = useState<Me | null>(null);
-  const [own, setOwn] = useState<{ handle: string; published: boolean } | null>(null);
+  const [own, setOwn] = useState<Own | null>(null);
   const [error, setError] = useState('');
   const lastSent = useRef('');
 
@@ -47,7 +52,7 @@ export function useServer(p: Profile, onRemoteProfile: (p: Profile) => void, kee
         setMe(m);
         if (!m.user) return setStatus('anon');
         if (!m.profile) return setStatus('unclaimed');
-        setOwn({ handle: m.profile.handle, published: m.profile.published });
+        setOwn(toOwn(m.profile));
         if (keepLocal) {
           setStatus('saving'); // the imported/opened draft will be saved over the stored one
         } else {
@@ -73,9 +78,9 @@ export function useServer(p: Profile, onRemoteProfile: (p: Profile) => void, kee
     setStatus('saving');
     const t = setTimeout(async () => {
       try {
-        const saved = await api<{ handle: string; published: boolean }>('PUT', '/api/profile', { handle: p.handle, data: p });
+        const saved = await api<Own>('PUT', '/api/profile', { handle: p.handle, data: p });
         lastSent.current = body;
-        setOwn({ handle: saved.handle, published: saved.published });
+        setOwn(toOwn(saved));
         setError('');
         setStatus('saved');
       } catch (e) {
@@ -90,9 +95,9 @@ export function useServer(p: Profile, onRemoteProfile: (p: Profile) => void, kee
     const handle = handleOverride ?? p.handle;
     const data = { ...p, handle };
     try {
-      const saved = await api<{ handle: string; published: boolean }>('PUT', '/api/profile', { handle, data });
+      const saved = await api<Own>('PUT', '/api/profile', { handle, data });
       lastSent.current = JSON.stringify(data);
-      setOwn({ handle: saved.handle, published: saved.published });
+      setOwn(toOwn(saved));
       setError('');
       setStatus('saved');
       return { ok: true as const, handle: saved.handle };
@@ -103,15 +108,43 @@ export function useServer(p: Profile, onRemoteProfile: (p: Profile) => void, kee
     }
   }, [p]);
 
+  /** Save the draft now if autosave hasn't yet — publishing must include the last keystroke. */
+  const flush = useCallback(async () => {
+    const body = JSON.stringify(p);
+    if (body === lastSent.current) return;
+    if (Object.keys(validate(p)).length) throw new Error('Fix the highlighted fields first');
+    const saved = await api<Own>('PUT', '/api/profile', { handle: p.handle, data: p });
+    lastSent.current = body;
+    setOwn(toOwn(saved));
+    setStatus('saved');
+  }, [p]);
+
+  /** true: the current draft goes live. false: take the page down. */
   const publish = useCallback(async (published: boolean) => {
     try {
-      const saved = await api<{ handle: string; published: boolean }>('PATCH', '/api/profile', { published });
-      setOwn({ handle: saved.handle, published: saved.published });
+      if (published) await flush();
+      const saved = await api<Own>('PATCH', '/api/profile', { published });
+      setOwn(toOwn(saved));
       return { ok: true as const };
     } catch (e) {
       return { ok: false as const, error: (e as Error).message };
     }
+  }, [flush]);
+
+  /** Throw the draft away: the editor goes back to the live version. */
+  const discard = useCallback(async () => {
+    try {
+      const saved = await api<Own & { data: Profile }>('PATCH', '/api/profile', { discard: true });
+      lastSent.current = JSON.stringify(saved.data);
+      setOwn(toOwn(saved));
+      onRemoteProfile(saved.data);
+      setStatus('saved');
+      return { ok: true as const };
+    } catch (e) {
+      return { ok: false as const, error: (e as Error).message };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { hosted: HOSTED, status, me, own, error, claim, publish };
+  return { hosted: HOSTED, status, me, own, error, claim, publish, discard };
 }

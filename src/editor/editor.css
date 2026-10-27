@@ -303,6 +303,12 @@ a.ed-btn { text-decoration: none; display: inline-flex; align-items: center; }
   .ed-grid { grid-template-columns: 1fr; }
   .ed-top-right .ed-icon { display: none; }
   .ed-menu-wrap .ed-btn { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+  /* room for Publish on a phone: the mark without the word, no Share (it's in the publish flow) */
+  .ed-logo span, .hide-xs { display: none; }
+  .ed-top-right .ed-btn { padding-inline: 10px; }
+  .ed-menu-wrap .ed-btn { max-width: 84px; }
+  .ed-mtabs button { padding: 6px 8px; font-size: 11px !important; }
+  .ed-top-mid { min-width: 0; }
 }
 
 /* ---- photo ---- */
@@ -313,3 +319,12 @@ a.ed-btn { text-decoration: none; display: inline-flex; align-items: center; }
 .ed-photo-frame span { font-size: 11px; color: var(--muted); text-align: center; }
 .ed-photo-actions { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
 .ed-photo-actions .ed-hint { flex-basis: 100%; }
+
+/* ---- review & publish ---- */
+.ed-count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 6px; border-radius: 10px; background: var(--accent-ink, #0a0a0a); color: var(--accent); font: 700 11px var(--mono); }
+.ed-review { max-width: 640px; }
+.ed-review-list { display: grid; gap: 14px; max-height: 50vh; overflow: auto; margin: 16px 0; padding: 14px 16px; border: 1px solid var(--line); background: var(--panel-2); }
+.ed-review-h { background: none; border: 0; padding: 0; color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; cursor: pointer; }
+.ed-review-h:hover span { margin-left: 4px; }
+.ed-review ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.ed-btn.danger { color: #ff6b6b; border-color: #ff6b6b; }

@@ -10,6 +10,8 @@ import { link, pageLink } from '../lib/url';
 import GithubDialog from './GithubDialog';
 import ShareDialog from './ShareDialog';
 import CvDialog from './CvDialog';
+import ReviewDialog from './ReviewDialog';
+import { countChanges, diffProfiles } from '../lib/diff';
 import Onboarding from './Onboarding';
 import { useServer, type SyncStatus } from './useServer';
 import { getTheme, hasTheme } from '../themes';
@@ -147,6 +149,7 @@ export default function Editor({ samples }: Props) {
   const [saved, setSaved] = useState<'saved' | 'saving' | 'off'>('saved');
   const [importOpen, setImportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [cvOpen, setCvOpen] = useState(false);
   const cvProvider = server.me?.features?.cvImport ?? null;
   const [importMode, setImportMode] = useState<'fresh' | 'merge'>('merge');
@@ -169,6 +172,10 @@ export default function Editor({ samples }: Props) {
 
   const issues = useMemo(() => validate(p), [p]);
   const ready = useMemo(() => readiness(p), [p]);
+  // what the draft would change on the public stage (only once there is one)
+  // (the live copy gets the same defaults the editor fills in, so opening a stage isn't a "change")
+  const changes = useMemo(() => (server.own?.published && server.own.live ? diffProfiles(normalize(server.own.live), p) : []), [server.own, p]);
+  const changeCount = countChanges(changes);
   const issueCount = Object.keys(issues).length;
 
   const pane = useRef<HTMLDivElement>(null);
@@ -319,7 +326,14 @@ export default function Editor({ samples }: Props) {
       const k = e.key.toLowerCase();
       if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
       else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); redo(); }
-      else if (k === 's') { e.preventDefault(); download(); }
+      else if (k === 's') {
+        e.preventDefault();
+        // hosted: review what's about to go public; static: the YAML is the save
+        if (!server.own) download();
+        else if (!server.own.published) notify('Saved as you type. Publish when you’re ready — until then only you can see it.');
+        else if (changeCount) setReviewOpen(true);
+        else notify('Everything is live — nothing to publish.');
+      }
     };
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
@@ -373,8 +387,8 @@ export default function Editor({ samples }: Props) {
           )}
         </div>
         {server.hosted && server.status !== 'anon' ? (
-          <span className={`ed-status mono ${SYNC_CLASS[server.status]}`} title={server.error || 'Your profile on this Starring instance'}>
-            {SYNC_LABEL[server.status]}
+          <span className={`ed-status mono ${SYNC_CLASS[server.status]}`} title={server.error || (changeCount ? 'Saved as a draft — your stage still shows the live version until you publish' : 'Your profile on this Starring instance')}>
+            {SYNC_LABEL[server.status]}{server.status === 'saved' && changeCount > 0 && ` · ${changeCount} unpublished`}
           </span>
         ) : (
           <span className={`ed-status mono ${saved}`} title="Drafts live in this browser only">
@@ -418,9 +432,15 @@ export default function Editor({ samples }: Props) {
           )}
           {server.own && (
             <>
+              {server.own.published && changeCount > 0 && (
+                <button type="button" className="ed-btn" onClick={() => setReviewOpen(true)} title="Review and publish (⌘S)">
+                  Publish<span className="hide-xs"> changes</span> <span className="ed-count">{changeCount}</span>
+                </button>
+              )}
               <button
                 type="button"
                 className={`ed-btn${server.own.published ? ' ghost' : ''}`}
+                hidden={server.own.published && changeCount > 0}
                 onClick={async () => {
                   const wasLive = server.own!.published;
                   const r = await server.publish(!wasLive);
@@ -431,7 +451,7 @@ export default function Editor({ samples }: Props) {
               >
                 {server.own.published ? '● Live' : 'Publish'}
               </button>
-              {server.own.published && <button type="button" className="ed-btn ghost" onClick={() => setShareOpen(true)}>Share</button>}
+              {server.own.published && <button type="button" className="ed-btn ghost hide-xs" onClick={() => setShareOpen(true)}>Share</button>}
               <a className="ed-icon ed-avatar" href={link('account')} title={server.me?.user?.email ?? 'Account'} aria-label="Account">
                 {(server.me?.user?.name || server.me?.user?.email || '?').slice(0, 1).toUpperCase()}
               </a>
@@ -529,6 +549,26 @@ export default function Editor({ samples }: Props) {
               notify(`${location.host}/${h} is yours — autosave is on. Publish when you're ready.`);
             }
             return r;
+          }}
+        />
+      )}
+      {reviewOpen && server.own && (
+        <ReviewDialog
+          groups={changes}
+          url={new URL(pageLink(server.own.handle), location.origin).href}
+          onSection={pick}
+          onClose={() => setReviewOpen(false)}
+          onPublish={async () => {
+            const r = await server.publish(true);
+            if (!r.ok) return notify(r.error);
+            setReviewOpen(false);
+            notify(`Published ${changeCount} change${changeCount === 1 ? '' : 's'} — your stage is up to date`);
+          }}
+          onDiscard={async () => {
+            const r = await server.discard();
+            if (!r.ok) return notify(r.error);
+            setReviewOpen(false);
+            notify('Back to the live version — ⌘Z brings your changes back', true);
           }}
         />
       )}

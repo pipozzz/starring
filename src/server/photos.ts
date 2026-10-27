@@ -16,12 +16,15 @@ export const newPhotoKey = (userId: string, now = Date.now()) => `${photoPrefix(
 
 const uploadedAt = (key: string) => parseInt(key.split('/').pop()!.split('-')[0], 36);
 
-/** Deletes the user's photos except `inUse` and fresh uploads; `all` deletes everything (account deletion). */
-export async function prunePhotos(s: Storage, userId: string, inUse: string | undefined, opts: { all?: boolean; now?: number } = {}) {
+/**
+ * Deletes the user's photos except those `inUse` (the draft's and the live version's) and fresh
+ * uploads; `all` deletes everything (account deletion).
+ */
+export async function prunePhotos(s: Storage, userId: string, inUse: string | (string | undefined)[] | undefined, opts: { all?: boolean; now?: number } = {}) {
   const now = opts.now ?? Date.now();
-  const keep = opts.all ? null : keyFromUrl(s, inUse);
+  const keep = opts.all ? [] : [inUse].flat().map((u) => keyFromUrl(s, u)).filter(Boolean);
   const keys = await s.list(photoPrefix(userId));
-  const stale = keys.filter((k) => opts.all || (k !== keep && !(now - uploadedAt(k) < FRESH_MS)));
+  const stale = keys.filter((k) => opts.all || (!keep.includes(k) && !(now - uploadedAt(k) < FRESH_MS)));
   await Promise.all(stale.map((k) => s.remove(k)));
   return stale;
 }

@@ -58,7 +58,11 @@ export const verification = pgTable('verification', {
   ...timestamps,
 });
 
-/** One stage per user. `data` is the same Profile document the YAML files hold. */
+/**
+ * One stage per user. `data` is the same Profile document the YAML files hold: the owner's
+ * working copy, autosaved by the editor. `live` is what the public sees — a copy of `data`
+ * taken each time the owner publishes — so edits stay private until they publish them.
+ */
 export const profile = pgTable(
   'profile',
   {
@@ -66,6 +70,9 @@ export const profile = pgTable(
     userId: text('user_id').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
     data: jsonb('data').$type<Profile>().notNull(),
     published: boolean('published').notNull().default(false),
+    /** The published version; null until the first publish. */
+    live: jsonb('live').$type<Profile>(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
     /** Set by a moderator: the profile is off every public surface and can't be re-published. */
     hiddenAt: timestamp('hidden_at', { withTimezone: true }),
     hiddenReason: text('hidden_reason'),
