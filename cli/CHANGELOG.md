@@ -1,5 +1,10 @@
 # starring-cli changelog
 
+## 0.3.0 — 2026-10-27
+
+- `--check-public`: count commits in public repos as public work. Asks GitHub, GitLab.com and Codeberg which repos are public (one request per repo, no login; `GITHUB_TOKEN` for a higher limit and to see your private GitHub repos). Years and platforms in `starring-activity.json` get `public` / `private` counts, and the summary shows the split. Without it, a hint suggests it when GitHub/GitLab/Codeberg repos were scanned.
+- The Starring editor uses the split: public commits are no longer counted as private, and never added twice to what the GitHub importer found.
+
 ## 0.2.0 — 2026-10-26
 
 - `--co-authored`: also count commits where your email is in a `Co-authored-by:` trailer (pairing, mob sessions, GitHub co-authors and squash merges). Each commit still counts once, and the summary shows authored vs co-authored. Needs git 2.22+. Thanks [@3liAf](https://github.com/3liAf) (#92, #95).

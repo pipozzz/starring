@@ -6,9 +6,12 @@
 // Counts the commits YOU authored in local git repositories (client work, company
 // GitLab, private repos) and writes starring-activity.json. Only dates and counts are
 // written: no code, no commit messages, no repo names, no emails. Nothing is uploaded.
+// --check-public is the one exception to "no network": it asks GitHub, GitLab.com and
+// Codeberg whether each repo hosted there is public (see visibility.mjs).
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
-import { defaultEmails, findRepos, scan } from './scan.mjs';
+import { defaultEmails, findRepos, remoteUrl, scan } from './scan.mjs';
+import { PUBLIC_HOSTS, checkVisibility, remoteRepo } from './visibility.mjs';
 
 const HELP = `starring scan [folders…] [options]
 
@@ -18,6 +21,9 @@ Writes only dates and counts — no code, messages, repo names or emails. Nothin
 Options
   -e, --email <addr>     your commit email (repeatable; default: git config user.email)
       --co-authored      also count commits where your email appears in Co-authored-by trailers
+      --check-public     ask GitHub, GitLab.com and Codeberg which of your repos are public, so
+                         public work counts as public (one request per repo; the only network
+                         use; GITHUB_TOKEN raises GitHub's limit of 60 requests an hour)
       --since <date>     only commits after this date, e.g. 2015-01-01
       --exclude <host>   skip repos hosted here (repeatable), e.g. github.com if the GitHub
                          importer already counts your public work
@@ -38,6 +44,7 @@ const { values, positionals } = parseArgs({
   options: {
     email: { type: 'string', short: 'e', multiple: true },
     'co-authored': { type: 'boolean' },
+    'check-public': { type: 'boolean' },
     since: { type: 'string' },
     exclude: { type: 'string', multiple: true },
     depth: { type: 'string' },
@@ -71,13 +78,23 @@ const log = (...a) => { if (!toStdout) console.error(...a); };
 
 log(`Looking for git repos in ${roots.join(', ')} …`);
 const repos = findRepos(roots, { maxDepth: Number(values.depth ?? 6) });
-log(`Found ${repos.length} repos. Counting commits by ${emails.join(', ') || '(no email)'} …\n`);
+log(`Found ${repos.length} repos.`);
+let visibility;
+if (values['check-public']) {
+  const hosted = repos.filter((r) => PUBLIC_HOSTS.includes(remoteRepo(remoteUrl(r))?.host));
+  log(`Asking ${PUBLIC_HOSTS.join(', ')} which of ${hosted.length} repos are public …`);
+  visibility = await checkVisibility(repos, { remoteUrl, token: process.env.GITHUB_TOKEN?.trim() || undefined });
+  const n = (v) => [...visibility.values()].filter((x) => x === v).length;
+  log(`  ${n('public')} public, ${n('private')} private${n('unknown') ? `, ${n('unknown')} unknown (counted as private${process.env.GITHUB_TOKEN ? '' : ' — GitHub allows 60 requests an hour without GITHUB_TOKEN'})` : ''}`);
+}
+log(`Counting commits by ${emails.join(', ') || '(no email)'} …\n`);
 
 let result;
 try {
   result = scan(repos, {
     emails,
     coauthored: values['co-authored'],
+    visibility,
     since: values.since,
     exclude: values.exclude ?? [],
     revealHosts: values['reveal-hosts'],
@@ -95,9 +112,14 @@ if (toStdout) {
   const out = values.out ?? 'starring-activity.json';
   writeFileSync(out, json + '\n');
   const co = result.totals.coauthored ? ` (${result.totals.authored.toLocaleString('en')} authored, ${result.totals.coauthored.toLocaleString('en')} co-authored)` : '';
-  log(`\n${result.totals.commits.toLocaleString('en')} commits${co} in ${result.totals.repos} repos`);
-  for (const y of result.years.slice(0, 8)) log(`  ${y.year}  ${'█'.repeat(Math.max(1, Math.round((y.commits / result.years.reduce((m, x) => Math.max(m, x.commits), 1)) * 30)))} ${y.commits}`);
-  for (const p of result.platforms) log(`  ${p.name}: ${p.repos} repos, ${p.commits} commits`);
+  const split = visibility ? ` — ${result.totals.public.toLocaleString('en')} in public repos, ${result.totals.private.toLocaleString('en')} in private` : '';
+  log(`\n${result.totals.commits.toLocaleString('en')} commits${co} in ${result.totals.repos} repos${split}`);
+  for (const y of result.years.slice(0, 8)) log(`  ${y.year}  ${'█'.repeat(Math.max(1, Math.round((y.commits / result.years.reduce((m, x) => Math.max(m, x.commits), 1)) * 30)))} ${y.commits}${visibility ? ` (${y.public} public)` : ''}`);
+  for (const p of result.platforms) log(`  ${p.name}${p.kind ? ` (${p.kind})` : ''}: ${p.repos} repos, ${p.commits} commits`);
+  if (!visibility && result.platforms.some((p) => ['GitHub', 'GitLab', 'Codeberg'].includes(p.name))) {
+    log('\n  Tip: all of these count as private work. If some are public repos, add --check-public');
+    log('  so they count as public (it asks GitHub/GitLab/Codeberg which repos are public).');
+  }
   log(`\n✓ Wrote ${out} — only dates and counts; open it to check.`);
   log('  Next: Starring editor → Start from → Import YAML / JSON Resume / scan… and drop the file in.');
 }

@@ -101,3 +101,20 @@ test('--since and a missing email', () => {
   assert.equal(scan(findRepos([root]), { emails: ['me@agency.test'], since: '2025-01-01' }).totals.commits, 1);
   assert.throws(() => scan([], { emails: [] }), /No author email/);
 });
+
+test('with visibility, years and platforms split into public and private', () => {
+  const repos = findRepos([root]);
+  const visibility = new Map(repos.map((r) => [r, r.includes('public-lib') ? 'public' : 'private']));
+  const r = scan(repos, { emails: ['me@agency.test', 'me@personal.test'], visibility });
+  assert.equal(r.totals.commits, 4);
+  assert.equal(r.totals.public, 1);
+  assert.equal(r.totals.private, 3);
+  assert.deepEqual(r.years, [{ year: 2025, commits: 2, public: 1, private: 1 }, { year: 2024, commits: 2, public: 0, private: 2 }]);
+  assert.deepEqual(r.platforms.find((p) => p.name === 'GitHub'), { name: 'GitHub', kind: 'public', repos: 1, commits: 1 });
+  assert.equal(r.platforms.find((p) => p.name === 'GitLab (self-hosted)')?.kind, 'private');
+  // without it, the output stays exactly as before
+  const plain = scan(repos, { emails: ['me@agency.test', 'me@personal.test'] });
+  assert.equal(plain.totals.public, undefined);
+  assert.deepEqual(plain.years, [{ year: 2025, commits: 2 }, { year: 2024, commits: 2 }]);
+  assert.ok(plain.platforms.every((p) => !('kind' in p)));
+});

@@ -149,7 +149,7 @@ export function NumbersSection({ p, up }: SectionProps) {
     <>
       <p className="ed-lead">Commits per year. Private = work in client or company repos that GitHub can't show.</p>
       <p className="ed-hint">
-        For the real heatmap, run <code>npx starring-cli scan ~/code</code> on your machine and drop the <code>starring-activity.json</code> it writes onto this editor. It counts commits locally; only dates and counts leave your machine.
+        For the real heatmap, run <code>npx starring-cli scan ~/code --check-public</code> on your machine and drop the <code>starring-activity.json</code> it writes onto this editor. It counts commits locally; only dates and counts leave your machine.
       </p>
       <div className="ed-table">
         <div className="ed-tr ed-th"><span>Year</span><span>Public</span><span>Private</span><span>Imported</span><span /></div>
