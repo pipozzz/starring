@@ -1,6 +1,6 @@
 {
   "name": "starring-cli",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Count your commits in private git repos — locally — for your Starring profile. Code, messages and repo names never leave your machine.",
   "license": "MIT",
   "type": "module",

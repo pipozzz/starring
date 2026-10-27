@@ -1,5 +1,9 @@
 # starring-cli changelog
 
+## 0.3.1 — 2026-10-27
+
+- `--check-public` no longer writes a wrong file when GitHub (or GitLab/Codeberg) runs out of requests. Unauthenticated GitHub allows 60 an hour, so on a machine with many repos — or after a second run — most repos came back "unknown" and their public work was counted as private. Now the scan stops, writes nothing, says when the limit resets, and shows the same command with `GITHUB_TOKEN=$(gh auth token)` in front. It also stops asking a host once it says "too many requests".
+
 ## 0.3.0 — 2026-10-27
 
 - `--check-public`: count commits in public repos as public work. Asks GitHub, GitLab.com and Codeberg which repos are public (one request per repo, no login; `GITHUB_TOKEN` for a higher limit and to see your private GitHub repos). Years and platforms in `starring-activity.json` get `public` / `private` counts, and the summary shows the split. Without it, a hint suggests it when GitHub/GitLab/Codeberg repos were scanned.

@@ -23,7 +23,7 @@ Nothing, unless you ask. The scan runs locally and makes no network requests —
 | Option | |
 | --- | --- |
 | `-e, --email <addr>` | Your commit email. Repeat it for each address you've used. Default: `git config user.email` |
-| `--check-public` | Count commits in public repos as public work. Asks GitHub, GitLab.com and Codeberg which repos are public (one request per repo). Unauthenticated GitHub allows 60 requests an hour; set `GITHUB_TOKEN` (any token, no scopes needed) for more, and to see your private GitHub repos as private rather than unknown |
+| `--check-public` | Count commits in public repos as public work. Asks GitHub, GitLab.com and Codeberg which repos are public (one request per repo). Unauthenticated GitHub allows 60 requests an hour; set `GITHUB_TOKEN` (any token, no scopes needed — with the GitHub CLI: `GITHUB_TOKEN=$(gh auth token) npx starring-cli scan … --check-public`) for 5,000 an hour. If a host runs out of requests, the scan stops without writing anything and tells you when to try again |
 | `--co-authored` | Also count commits where your email appears in `Co-authored-by:` trailers (requires git 2.22+) |
 | `--since <date>` | Only count commits after a date, e.g. `2015-01-01` |
 | `--exclude <host>` | Skip repos hosted on this host, e.g. `github.com` when the GitHub importer already counts your public work |

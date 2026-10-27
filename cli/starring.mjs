@@ -83,9 +83,27 @@ let visibility;
 if (values['check-public']) {
   const hosted = repos.filter((r) => PUBLIC_HOSTS.includes(remoteRepo(remoteUrl(r))?.host));
   log(`Asking ${PUBLIC_HOSTS.join(', ')} which of ${hosted.length} repos are public …`);
-  visibility = await checkVisibility(repos, { remoteUrl, token: process.env.GITHUB_TOKEN?.trim() || undefined });
+  const token = process.env.GITHUB_TOKEN?.trim() || undefined;
+  const checked = await checkVisibility(repos, { remoteUrl, token });
+  if (checked.limited) {
+    // half-known visibility would quietly count public work as private: stop instead
+    const { host, resetAt } = checked.limited;
+    const when = resetAt ? ` It resets at ${new Date(resetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.` : '';
+    const args = process.argv.slice(2).map((a) => (/^[\w@./~:+=-]+$/.test(a) ? a : `'${a.replace(/'/g, `'\\''`)}'`)).join(' ');
+    console.error(`\n✖ ${host} says too many requests, so it can't say which repos are public.${when}`);
+    console.error('  Nothing was written: the result would count public work as private.\n');
+    if (host === 'github.com') {
+      console.error(token
+        ? '  Your GITHUB_TOKEN has hit its limit too — wait for the reset and run it again.'
+        : `  Run it again with a GitHub token (it only goes to api.github.com, and lifts the limit from\n  60 to 5,000 requests an hour):\n\n    GITHUB_TOKEN=$(gh auth token) npx starring-cli ${args}\n\n  No gh CLI? Any personal access token works, no scopes needed. Or wait for the reset.`);
+    } else {
+      console.error('  Wait for the reset and run it again.');
+    }
+    process.exit(2);
+  }
+  visibility = checked.visibility;
   const n = (v) => [...visibility.values()].filter((x) => x === v).length;
-  log(`  ${n('public')} public, ${n('private')} private${n('unknown') ? `, ${n('unknown')} unknown (counted as private${process.env.GITHUB_TOKEN ? '' : ' — GitHub allows 60 requests an hour without GITHUB_TOKEN'})` : ''}`);
+  log(`  ${n('public')} public, ${n('private')} private${n('unknown') ? `, ${n('unknown')} unknown (the host didn't answer; counted as private)` : ''}`);
 }
 log(`Counting commits by ${emails.join(', ') || '(no email)'} …\n`);
 
