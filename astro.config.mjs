@@ -28,6 +28,7 @@ const serverRoutes = () => ({
         '/oembed': 'src/server/routes/oembed.ts',
         '/api/import/github': 'src/server/routes/import-github.ts',
         '/api/import/cv': 'src/server/routes/import-cv.ts',
+        '/api/discover': 'src/server/routes/discover.ts',
         '/api/upload/photo': 'src/server/routes/upload-photo.ts',
         '/media/[...key]': 'src/server/routes/media.ts',
         '/api/report': 'src/server/routes/api-report.ts',

@@ -11,6 +11,8 @@ import GithubDialog from './GithubDialog';
 import ShareDialog from './ShareDialog';
 import CvDialog from './CvDialog';
 import ReviewDialog from './ReviewDialog';
+import DiscoverDialog from './DiscoverDialog';
+import { applyChange } from '../lib/discover';
 import { countChanges, diffProfiles } from '../lib/diff';
 import Onboarding from './Onboarding';
 import { useServer, type SyncStatus } from './useServer';
@@ -150,6 +152,7 @@ export default function Editor({ samples }: Props) {
   const [importOpen, setImportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [discoverOpen, setDiscoverOpen] = useState(false);
   const [cvOpen, setCvOpen] = useState(false);
   const cvProvider = server.me?.features?.cvImport ?? null;
   const [importMode, setImportMode] = useState<'fresh' | 'merge'>('merge');
@@ -468,6 +471,11 @@ export default function Editor({ samples }: Props) {
             <span className="ed-ring" style={{ ['--v' as string]: ready.score }}><b>{ready.score}</b></span>
             <span><span className="mono">Stage ready</span><span className="ed-hint">{ready.todo.length ? `${ready.todo.length} to go` : 'Starring!'}</span></span>
           </button>
+          {server.own && (
+            <button type="button" className="ed-discover-btn mono" onClick={() => setDiscoverOpen(true)} title="Look on GitHub for new projects, contributions and stars">
+              ↻ <span>Find updates</span>
+            </button>
+          )}
           {menu === 'ready' && ready.todo.length > 0 && (
             <ul className="ed-menu ed-todo" onMouseLeave={() => setMenu(null)}>
               {ready.todo.map(([, msg, id]) => (
@@ -550,6 +558,14 @@ export default function Editor({ samples }: Props) {
             }
             return r;
           }}
+        />
+      )}
+      {discoverOpen && (
+        <DiscoverDialog
+          draft={p}
+          onApply={(changes) => commit(changes.reduce(applyChange, p))}
+          onSection={pick}
+          onClose={() => setDiscoverOpen(false)}
         />
       )}
       {reviewOpen && server.own && (

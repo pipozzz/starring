@@ -196,6 +196,17 @@ try {
     // put the original back for the steps below
     await expect(await call('PUT', '/api/profile', { ...named('Eve Tester'), published: true }), 200);
   });
+  await step('find updates: needs a GitHub link; dismissals are remembered; anonymous is refused', async () => {
+    const noLink = { ...profile, handle, profile: { ...profile.profile, links: {} } };
+    const r = await expect(await call('POST', '/api/discover', { draft: noLink }), 404);
+    assert.match(r.error, /GitHub link/);
+    assert.equal((await expect(await call('POST', '/api/discover', { dismiss: 'project:https://github.com/x/y' }), 200)).ok, true);
+    assert.equal((await expect(await call('POST', '/api/discover', { dismiss: 'project:https://github.com/x/y' }), 200)).ok, true, 'dismissing twice is fine');
+    const before = as;
+    as = 'anon';
+    assert.equal((await call('POST', '/api/discover', { draft: noLink })).status, 401);
+    as = before;
+  });
   await step('photo upload: EXIF stripped, served inertly, on the page and poster (when STORAGE is set)', async () => {
     const me = await expect(await call('GET', '/api/me'), 200);
     if (!me.features.uploads) { console.log('    (skipped: STORAGE not configured)'); return; }

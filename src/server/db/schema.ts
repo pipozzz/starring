@@ -138,3 +138,14 @@ export const digestSent = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.week] })],
 );
+
+/** Autodiscovery suggestions the owner said no to (src/lib/discover.ts keys), so they don't come back. */
+export const discoveryDismissal = pgTable(
+  'discovery_dismissal',
+  {
+    userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.key] })],
+);

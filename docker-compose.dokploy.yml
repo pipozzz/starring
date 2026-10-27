@@ -56,6 +56,8 @@ services:
       SIGNUP_ALLOWLIST: ${SIGNUP_ALLOWLIST:-}
       AUTH_PASSWORD: ${AUTH_PASSWORD:-true}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      # Find updates (autodiscovery) for owners who didn't sign in with GitHub — public data only
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID:-}
       GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET:-}

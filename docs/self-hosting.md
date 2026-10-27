@@ -153,6 +153,7 @@ DATABASE_URL=postgres://… BETTER_AUTH_URL=https://… BETTER_AUTH_SECRET=… n
 | `CV_IMPORT_PROVIDER` | the provider whose key is set (`anthropic` if both) | `anthropic` or `openai`. |
 | `CV_IMPORT_MODEL` | provider default | A different model for CV import, e.g. a cheaper one. |
 | `CV_IMPORT_DAILY_LIMIT` | `200` | Imports per day for the whole instance, a spend cap. Each user also gets 10 per day. A typical CV costs a few cents. |
+| `GITHUB_TOKEN` | none | Used by **Find updates** in the editor (autodiscovery: new projects, organisation repos you lead, merged PRs elsewhere, stars, yearly contributions) for owners who didn't sign in with GitHub. It reads public data only. Any token works, no scopes; without it the instance shares GitHub's anonymous limit of 60 requests an hour. Owners who signed in with GitHub always use their own token. |
 | `STORAGE` | none | `local` or `s3` turns on **photo uploads** (profile photos). See [Uploads (storage)](#uploads-storage). |
 | `STORAGE_DIR` | `./data/uploads` (`/app/data/uploads` in Docker) | Where `STORAGE=local` keeps files. Put it on a volume. |
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | none | The bucket for `STORAGE=s3`. Any S3-compatible service works. `S3_REGION` defaults to `auto`. |
