@@ -138,3 +138,37 @@ test('topics are spelled the way the technologies are', () => {
   assert.equal(prettyTopic('rest-api'), 'REST API');
   assert.equal(prettyTopic('web-components'), 'Web Components');
 });
+
+test("an org repo where you're the top contributor is your project, not a guest appearance", async () => {
+  const commit = (repo: string, date: string) => ({ repository: { full_name: repo }, commit: { author: { date } } });
+  mockFetch({
+    '/search/issues': { body: { items: [] } },
+    '/search/commits': { body: { items: [
+      commit('Nomploy/nomploy', '2026-10-20T10:00:00Z'), commit('Nomploy/nomploy', '2026-10-21T10:00:00Z'),
+      commit('bigco/engine', '2025-05-01T10:00:00Z'),
+      commit('client/secret', '2024-01-01T10:00:00Z'),
+    ] } },
+    // contributors first: the mock matches the first key a URL contains
+    '/repos/Nomploy/nomploy/contributors': { body: [{ login: 'Octo-Dev', contributions: 740 }, { login: 'github-actions[bot]', contributions: 1 }] },
+    '/repos/Nomploy/nomploy': { body: { full_name: 'Nomploy/nomploy', name: 'nomploy', description: 'Open-source PaaS on Nomad', language: 'TypeScript', topics: ['nomad', 'hacktoberfest'], stargazers_count: 4, private: false, fork: false, archived: false, html_url: 'https://github.com/Nomploy/nomploy', homepage: 'https://nomploy.com', pushed_at: '2026-10-27T00:00:00Z', owner: { login: 'Nomploy', type: 'Organization' } } },
+    '/repos/bigco/engine/contributors': { body: [{ login: 'someone', contributions: 900 }, { login: 'octo-dev', contributions: 12 }] },
+    '/repos/bigco/engine': { body: { full_name: 'bigco/engine', name: 'engine', description: null, language: 'Go', stargazers_count: 2000, private: false, fork: false, archived: false, html_url: 'https://github.com/bigco/engine', homepage: null, pushed_at: '2026-01-01T00:00:00Z', owner: { login: 'bigco', type: 'Organization' } } },
+    '/repos/client/secret/contributors': { body: [{ login: 'boss', contributions: 50 }] },
+    '/repos/client/secret': { body: { full_name: 'client/secret', name: 'secret', description: 'x', language: 'Go', stargazers_count: 0, private: true, fork: false, archived: false, html_url: 'x', homepage: null, pushed_at: '2024-01-01T00:00:00Z', owner: { login: 'client', type: 'Organization' } } },
+    '/users/Octo-Dev/repos': { body: repos },
+    '/users/Octo-Dev': { body: user },
+  });
+  const { profile, notes } = await importGithub('Octo-Dev');
+  const nomploy = profile.projects?.find((p) => p.title === 'nomploy');
+  assert.ok(nomploy, 'in Featured work');
+  assert.equal(nomploy!.role, 'Creator');
+  assert.equal(nomploy!.url, 'https://github.com/Nomploy/nomploy');
+  assert.equal(nomploy!.live, 'https://nomploy.com');
+  assert.deepEqual(nomploy!.impact, ['4 stars', '740 commits']);
+  assert.deepEqual(nomploy!.stack, ['TypeScript', 'Nomad']);
+  assert.deepEqual(profile.projects?.map((p) => p.title), ['star', 'nomploy'], 'sorted by stars with your own repos');
+  assert.deepEqual(profile.openSource?.map((o) => o.repo), ['bigco/engine'], 'not a guest appearance; someone else’s private repo is left out');
+  assert.equal(profile.openSource?.[0].what, '1 commit');
+  assert.equal(profile.openSource?.[0].url, 'https://github.com/bigco/engine/commits?author=Octo-Dev');
+  assert.ok(notes.some((n) => /nomploy lives under an organisation, but it’s yours/.test(n)));
+});
