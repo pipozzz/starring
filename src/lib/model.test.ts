@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { HANDLE, RESERVED, THIS_YEAR, activityGrid, blankProfile, heatmap, plausibleTarget, totals, validate, type Profile } from './model';
+import { HANDLE, RESERVED, SUPPORTED_LANGS, THIS_YEAR, activityGrid, blankProfile, heatmap, plausibleTarget, resolveLang, totals, validate, type Profile } from './model';
 
 const valid = (): Profile => ({
   ...blankProfile(),
@@ -113,4 +113,27 @@ test('new sections: required fields, links, years, quote length, project live/im
     projects: [{ title: 'P', year: 2024, visibility: 'nda', blurb: 'b', live: 'https://p.example', image: 'https://p.example/s.png' }],
   });
   assert.deepEqual(ok, {}, 'NDA projects may have a live link and an image');
+});
+
+test('resolveLang returns supported lang or falls back to en', () => {
+  assert.equal(resolveLang(undefined), 'en', 'undefined → en');
+  assert.equal(resolveLang(''), 'en', 'empty → en');
+  assert.equal(resolveLang('en'), 'en', 'en stays en');
+  assert.equal(resolveLang('es'), 'es', 'es stays es');
+  assert.equal(resolveLang('en-US'), 'en', 'en-US → en');
+  assert.equal(resolveLang('es-MX'), 'es', 'es-MX → es');
+  assert.equal(resolveLang('de'), 'en', 'unsupported de → en');
+  assert.equal(resolveLang('fr-CA'), 'en', 'unsupported fr-CA → en');
+  assert.equal(resolveLang('invalid!!'), 'en', 'invalid tag → en');
+  assert.deepEqual(SUPPORTED_LANGS, ['en', 'es'], 'supported langs are en and es');
+});
+
+test('profile.lang validation accepts valid BCP 47 tags', () => {
+  const base = valid();
+  assert.deepEqual(validate({ ...base, profile: { ...base.profile, lang: 'en' } }), {}, 'en is valid');
+  assert.deepEqual(validate({ ...base, profile: { ...base.profile, lang: 'es' } }), {}, 'es is valid');
+  assert.deepEqual(validate({ ...base, profile: { ...base.profile, lang: 'de' } }), {}, 'de is valid (unsupported but valid tag)');
+  assert.deepEqual(validate({ ...base, profile: { ...base.profile, lang: 'en-US' } }), {}, 'en-US is valid');
+  assert.ok(validate({ ...base, profile: { ...base.profile, lang: 'invalid!!' } })['profile.lang'], 'invalid tag fails');
+  assert.ok(validate({ ...base, profile: { ...base.profile, lang: 'not a lang' } })['profile.lang'], 'garbage fails');
 });

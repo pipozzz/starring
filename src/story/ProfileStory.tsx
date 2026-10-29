@@ -1,12 +1,10 @@
-import { activityGrid, compact, ossHome, ossLogo, totals, heatmap, type OssKind, type Profile, type TalkKind, type Visibility } from '../lib/model';
+import { activityGrid, compact, ossHome, ossLogo, totals, heatmap, resolveLang, type OssKind, type Profile, type TalkKind, type Visibility } from '../lib/model';
 import { link } from '../lib/url';
+import { getStrings, formatNumber } from './i18n';
 import './story.css';
 
-const VIS_LABEL: Record<Visibility, string> = { public: 'Open source', private: 'Private repo', nda: 'Under NDA' };
-const KIND_LABEL: Record<TalkKind, string> = { talk: 'Talk', article: 'Article', podcast: 'Podcast', video: 'Video', book: 'Book' };
 const OSS_LABEL: Record<OssKind, string> = { code: 'Code', docs: 'Docs', translation: 'Translation', design: 'Design', maintainer: 'Maintainer' };
 const joined = (...xs: (string | number | undefined | null)[]) => xs.filter((x) => x !== undefined && x !== null && x !== '').join(' · ');
-const n = (v: number) => (v || 0).toLocaleString('en');
 
 interface Props {
   p: Profile;
@@ -23,6 +21,13 @@ interface Props {
  * the editor's phone preview behaves like a real phone.
  */
 export default function ProfileStory({ p, preview = false, onSection, site }: Props) {
+  const lang = resolveLang(p.profile?.lang);
+  const s = getStrings(lang);
+  const n = (v: number) => formatNumber(v || 0, lang);
+
+  const VIS_LABEL: Record<Visibility, string> = s.visibility;
+  const KIND_LABEL: Record<TalkKind, string> = s.talkKind;
+
   // on a custom domain, links to Starring itself must point at the main site
   const at = (path = '') => (site ? new URL(link(path), site).href : link(path));
   const t = totals(p);
@@ -67,7 +72,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
         <div className="hero-top mono">
           <a href={at()}>Starring</a>
           <span>{me.location}</span>
-          {me.available && <span className="tag solid">Available for work</span>}
+          {me.available && <span className="tag solid">{s.hero.availableForWork}</span>}
           {!preview && <a className="hero-trailer" href={site ? '/trailer/' : link(`${p.handle}/trailer/`)}>▶ Watch the trailer</a>}
         </div>
         <div className={`hero-main${me.photo ? ' has-photo' : ''}`}>
@@ -84,32 +89,37 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
         <div className="hero-bottom">
           <p className="hero-role">{me.role}</p>
           <p className="muted hero-tag">{me.tagline}</p>
-          <span className="mono scroll-cue">Scroll — the show starts ↓</span>
+          <span className="mono scroll-cue">{s.hero.scrollCue}</span>
         </div>
       </header>
 
       {t.all > 0 && (
         <section className="act" id="numbers" {...sec('contributions')}>
-          <Label>By the numbers</Label>
+          <Label>{s.numbers.actLabel}</Label>
           <div className="stats">
-            {[[t.years, 'years shipping'], [t.all, 'commits'], [t.clients, 'clients'], [t.repos, 'repositories']].map(([v, l]) => (
-              <div className="stat reveal" key={l}><b className="display" data-count={v}>{n(v as number)}</b><span className="mono">{l}</span></div>
+            {[
+              [t.years, s.numbers.yearsShipping(t.years)],
+              [t.all, s.numbers.commits(t.all)],
+              [t.clients, s.numbers.clients(t.clients)],
+              [t.repos, s.numbers.repositories(t.repos)],
+            ].map(([v, l]) => (
+              <div className="stat reveal" key={String(l)}><b className="display" data-count={v}>{n(v as number)}</b><span className="mono">{l}</span></div>
             ))}
           </div>
           <p className="iceberg reveal">
             <span className="display accent">{t.privateShare}%</span>
-            {t.privateShare >= 50 ? "of this work lives in private repos. GitHub only shows the tip." : "of this work lives in private repos — the part GitHub never shows."}
+            {t.privateShare >= 50 ? s.numbers.icebergHigh : s.numbers.icebergLow}
           </p>
-          <div className="split reveal" aria-label="Public versus private commits">
-            <div className="split-pub" style={{ flex: t.public || 0.0001 }}><span className="mono">Public {n(t.public)}</span></div>
-            <div className="split-priv" style={{ flex: t.private || 0.0001 }}><span className="mono">Private {n(t.private)}</span></div>
+          <div className="split reveal" aria-label={s.numbers.splitAriaLabel}>
+            <div className="split-pub" style={{ flex: t.public || 0.0001 }}><span className="mono">{s.numbers.publicLabel} {n(t.public)}</span></div>
+            <div className="split-priv" style={{ flex: t.private || 0.0001 }}><span className="mono">{s.numbers.privateLabel} {n(t.private)}</span></div>
           </div>
         </section>
       )}
 
       {clients.length > 0 && (
         <section className="act act-clients" id="clients" {...sec('clients')}>
-          <Label>Who trusted me with production</Label>
+          <Label>{s.clientsSection.actLabel}</Label>
           <div className="marquee" aria-hidden="true">
             <div className="marquee-track display">
               {[...clients, ...clients].map((c, i) => <span className="client" key={i}>{c.name}<i>✦</i></span>)}
@@ -120,7 +130,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
               <li className="reveal" key={i}>
                 <span className="client-name">{c.name}</span>
                 <span className="muted">{c.sector}</span>
-                {c.nda ? <span className="tag">NDA</span> : <span className="tag solid">Public</span>}
+                {c.nda ? <span className="tag">{s.clientsSection.ndaTag}</span> : <span className="tag solid">{s.clientsSection.publicTag}</span>}
               </li>
             ))}
           </ul>
@@ -129,16 +139,16 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
 
       {experience.length > 0 && (
         <section className="act" id="timeline" {...sec('experience')}>
-          <Label>The road</Label>
+          <Label>{s.timeline.actLabel}</Label>
           <ol className="timeline">
             {experience.map((e, i) => (
               <li className="tl-item reveal" key={i}>
-                <div className="tl-year display">{e.from}<span className="muted">–{e.to ?? 'now'}</span></div>
+                <div className="tl-year display">{e.from}<span className="muted">–{e.to ?? s.timeline.now}</span></div>
                 <div className="tl-body">
-                  <h3>{e.role} <span className="muted">@ {e.company}</span></h3>
+                  <h3>{e.role} <span className="muted">{s.timeline.at} {e.company}</span></h3>
                   {e.summary && <p>{e.summary}</p>}
-                  {e.clients?.length ? <p className="mono muted">Clients: {e.clients.join(' · ')}</p> : null}
-                  <div className="chips">{e.stack?.map((s) => <span className="tag" key={s}>{s}</span>)}</div>
+                  {e.clients?.length ? <p className="mono muted">{s.timeline.clientsPrefix} {e.clients.join(' · ')}</p> : null}
+                  <div className="chips">{e.stack?.map((st) => <span className="tag" key={st}>{st}</span>)}</div>
                 </div>
               </li>
             ))}
@@ -148,7 +158,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
 
       {projects.length > 0 && (
         <section className="act" id="work" {...sec('projects')}>
-          <Label>Featured work</Label>
+          <Label>{s.work.actLabel}</Label>
           <div className="projects">
             {projects.map((pr, i) => (
               <article className={`project reveal vis-${pr.visibility}`} key={i}>
@@ -157,21 +167,21 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
                   <span>{pr.year}</span>
                   <span className={pr.visibility === 'public' ? 'tag solid' : 'tag'}>{VIS_LABEL[pr.visibility]}</span>
                 </div>
-                {pr.image && <img className="project-image" src={pr.image} alt={`${pr.title} — screenshot`} loading="lazy" decoding="async" />}
+                {pr.image && <img className="project-image" src={pr.image} alt={s.work.screenshot(pr.title)} loading="lazy" decoding="async" />}
                 <h3 className="display project-title">{pr.title}</h3>
-                {pr.client && <p className="mono">for <span className="accent">{pr.client}</span>{pr.role && <> · {pr.role}</>}</p>}
+                {pr.client && <p className="mono">{s.work.forPrefix} <span className="accent">{pr.client}</span>{pr.role && <> · {pr.role}</>}</p>}
                 <p className="project-blurb">{pr.blurb}</p>
                 {pr.visibility === 'nda' && (
-                  <p className="redacted" title="Code and details under NDA">
-                    <span>source code</span> <span>internal repo url</span> <span>architecture diagram</span>
+                  <p className="redacted" title={s.work.redactedTitle}>
+                    <span>{s.work.redactedSourceCode}</span> <span>{s.work.redactedRepoUrl}</span> <span>{s.work.redactedArchitecture}</span>
                   </p>
                 )}
                 <ul className="impact">{pr.impact?.map((x) => <li className="display" key={x}>{x}</li>)}</ul>
-                <div className="chips">{pr.stack?.map((s) => <span className="tag" key={s}>{s}</span>)}</div>
+                <div className="chips">{pr.stack?.map((st) => <span className="tag" key={st}>{st}</span>)}</div>
                 {(pr.live || (pr.url && pr.visibility !== 'nda')) && (
                   <p className="project-links mono">
-                    {pr.live && <a className="project-link" href={pr.live}>See it live ↗</a>}
-                    {pr.url && pr.visibility !== 'nda' && <a className="project-link" href={pr.url}>View source ↗</a>}
+                    {pr.live && <a className="project-link" href={pr.live}>{s.work.seeItLive}</a>}
+                    {pr.url && pr.visibility !== 'nda' && <a className="project-link" href={pr.url}>{s.work.viewSource}</a>}
                   </p>
                 )}
               </article>
@@ -210,7 +220,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
 
       {(awards.length > 0 || certs.length > 0) && (
         <section className="act" id="awards" {...sec(awards.length ? 'awards' : 'certifications')}>
-          <Label>Accolades</Label>
+          <Label>{s.accolades.actLabel}</Label>
           {awards.length > 0 && (
             <ul className="awards">
               {awards.map((a, i) => (
@@ -225,13 +235,13 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
           )}
           {certs.length > 0 && (
             <div className="certs" {...sec('certifications')}>
-              <p className="mono accent">Certified</p>
+              <p className="mono accent">{s.accolades.certified}</p>
               <ul>
                 {certs.map((c, i) => (
                   <li className="reveal" key={i}>
                     <span className="cert-name">{c.name}</span>
                     <span className="mono muted">{joined(c.issuer, c.year)}</span>
-                    {c.url && <a className="mono project-link" href={c.url} aria-label={`Verify ${c.name}`}>Verify ↗</a>}
+                    {c.url && <a className="mono project-link" href={c.url} aria-label={s.accolades.verifyLabel(c.name)}>{s.accolades.verify}</a>}
                   </li>
                 ))}
               </ul>
@@ -242,7 +252,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
 
       {talks.length > 0 && (
         <section className="act" id="talks" {...sec('talks')}>
-          <Label>Press tour</Label>
+          <Label>{s.pressTour.actLabel}</Label>
           <ul className="talks">
             {talks.map((x, i) => (
               <li className="reveal" key={i}>
@@ -257,11 +267,11 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
 
       {(hasActivity || platforms.length > 0) && (
         <section className="act" id="activity" {...sec(hasActivity ? 'contributions' : 'platforms')}>
-          <Label>{hasActivity ? 'Every commit counts' : 'Where the code lives'}</Label>
+          <Label>{hasActivity ? s.activity.actLabelActivity : s.activity.actLabelPlatforms}</Label>
           {hasActivity && latest && (
             <>
-              <h3 className="display big">{latest.year}<span className="muted"> / {n(latest.public + latest.private)} contributions</span></h3>
-              <div className="heat reveal" role="img" aria-label={`${real ? 'Commits per day' : 'Contribution heatmap'} for ${latest.year}`}>
+              <h3 className="display big">{latest.year}<span className="muted"> / {n(latest.public + latest.private)} {s.activity.contributions(latest.public + latest.private)}</span></h3>
+              <div className="heat reveal" role="img" aria-label={real ? s.activity.commitsPerDay(latest.year) : s.activity.contributionHeatmap(latest.year)}>
                 {grid.map((v, i) => <i className={`l${v}`} key={i} />)}
               </div>
               <div className="years">
@@ -272,7 +282,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
                       <span className="pub" style={{ width: `${(c.public / maxYear) * 100}%` }} />
                       <span className="priv" style={{ width: `${(c.private / maxYear) * 100}%` }} />
                     </div>
-                    <span className="mono muted">{c.verified ? '✓ imported' : 'self-reported'}</span>
+                    <span className="mono muted">{c.verified ? s.activity.imported : s.activity.selfReported}</span>
                   </div>
                 ))}
               </div>
@@ -284,7 +294,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
                 <li className="reveal" key={i}>
                   <span className="display">{n(pl.commits || pl.repos)}</span>
                   <span className="mono">{pl.name}</span>
-                  <span className="mono muted">{pl.commits ? `${pl.repos} repos · ` : 'repositories · '}{pl.kind}</span>
+                  <span className="mono muted">{pl.commits ? `${n(pl.repos)} ${s.activity.repos(pl.repos)} · ` : `${s.activity.repositoriesLabel} · `}{pl.kind}</span>
                 </li>
               ))}
             </ul>
@@ -294,7 +304,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
 
       {((p.education?.length ?? 0) > 0 || skills.length > 0 || languages.length > 0) && (
         <section className="act" id="training" {...sec('education')}>
-          <Label>Training montage</Label>
+          <Label>{s.training.actLabel}</Label>
           <div className="edu-skills">
             <ul className="edu">
               {p.education?.map((ed, i) => (
@@ -314,7 +324,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
               ))}
               {languages.length > 0 && (
                 <div className="reveal" {...sec('languages')}>
-                  <p className="mono accent">Languages</p>
+                  <p className="mono accent">{s.training.languagesHeader}</p>
                   <p className="skill-items">{languages.map((l) => (l.level ? `${l.name} (${l.level})` : l.name)).join(' / ')}</p>
                 </div>
               )}
@@ -325,7 +335,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
 
       {interests.length > 0 && (
         <section className="act" id="offscreen" {...sec('interests')}>
-          <Label>Behind the scenes</Label>
+          <Label>{s.behindTheScenes.actLabel}</Label>
           <ul className="interests">
             {interests.map((x, i) => (
               <li className="reveal" key={i}>
@@ -339,11 +349,11 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
 
       {testimonials.length > 0 && (
         <section className="act" id="critics" {...sec('testimonials')}>
-          <Label>The critics</Label>
+          <Label>{s.critics.actLabel}</Label>
           <div className="quotes">
             {testimonials.map((x, i) => (
               <figure className="quote reveal" key={i}>
-                <span className="quote-mark display accent" aria-hidden="true">“</span>
+                <span className="quote-mark display accent" aria-hidden="true">"</span>
                 <blockquote>{x.quote}</blockquote>
                 <figcaption className="mono">
                   — {x.url ? <a href={x.url}>{x.name}</a> : x.name}
@@ -356,7 +366,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
       )}
 
       <footer className="credits" id="credits" {...sec('profile')}>
-        <p className="mono muted">That's a wrap</p>
+        <p className="mono muted">{s.footer.thatsAWrap}</p>
         <h2 className="display">Starring<br /><span className="accent">{me.name}</span></h2>
         <ul className="mono">
           {links.map(([k, v]) => <li key={k}><a href={v}>{k} ↗</a></li>)}
@@ -364,8 +374,8 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
           <li><a href={site ? '/trailer/' : link(`${p.handle}/trailer/`)}>Trailer ▶</a></li>
           <li><a href={site ? '/cv/' : link(`${p.handle}/cv/`)}>CV / PDF ↓</a></li>
         </ul>
-        <p className="mono muted">Made with Starring — open source</p>
-        <p className="mono muted legal-links"><a href={at('terms')}>Terms</a> · <a href={at('privacy')}>Privacy</a></p>
+        <p className="mono muted">{s.footer.madeWith}</p>
+        <p className="mono muted legal-links"><a href={at('terms')}>{s.footer.terms}</a> · <a href={at('privacy')}>{s.footer.privacy}</a></p>
       </footer>
     </div>
   );

@@ -60,6 +60,22 @@ export interface OpenSource {
   logo?: string;
 }
 
+/** Supported BCP 47 language tags for i18n. */
+export const SUPPORTED_LANGS = ['en', 'es'] as const;
+export type Lang = (typeof SUPPORTED_LANGS)[number];
+
+/** Check if a lang is supported; returns 'en' for unknown/invalid tags. */
+export const resolveLang = (lang: string | undefined): Lang => {
+  if (!lang) return 'en';
+  try {
+    const canonical = Intl.getCanonicalLocales(lang)[0];
+    const base = canonical.split('-')[0].toLowerCase();
+    return (SUPPORTED_LANGS as readonly string[]).includes(base) ? (base as Lang) : 'en';
+  } catch {
+    return 'en';
+  }
+};
+
 export interface Profile {
   handle: string;
   theme?: Theme;
@@ -71,6 +87,8 @@ export interface Profile {
     available?: boolean;
     /** Portrait, https:// (an upload on this instance, or any image address). */
     photo?: string;
+    /** BCP 47 language tag, default 'en'. */
+    lang?: string;
     links?: Record<string, string>;
   };
   contributions?: Contribution[];
@@ -145,6 +163,13 @@ export const validate = (p: Profile): Issues => {
   else if (RESERVED.includes(p.handle)) out.handle = 'This handle is reserved';
   req('profile.name', p.profile?.name);
   req('profile.role', p.profile?.role);
+  if (p.profile?.lang) {
+    try {
+      Intl.getCanonicalLocales(p.profile.lang);
+    } catch {
+      out['profile.lang'] = 'Invalid language tag (expected BCP 47, e.g. en, es, de)';
+    }
+  }
   Object.entries(p.profile?.links ?? {}).forEach(([k, v]) => {
     if (v && !/^(https?:|mailto:)/.test(v)) out[`profile.links.${k}`] = 'Must start with https:// or mailto:';
   });

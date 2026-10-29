@@ -8,6 +8,8 @@ interface Props {
   title: string;
   description?: string;
   theme?: string;
+  /** BCP 47 language tag for the page (default 'en') */
+  lang?: string;
   /** app pages: no progress bar or scroll effects */
   bare?: boolean;
   /** theme ids whose fonts to load; omit to load every theme (editor, gallery) */
@@ -32,6 +34,7 @@ const {
   title,
   description = "Developer careers as scroll stories — including the work GitHub can't show.",
   theme,
+  lang = 'en',
   bare = false,
   fonts,
   image = 'og.png',
@@ -60,7 +63,7 @@ const plausibleSrc = (() => {
 })();
 ---
 <!doctype html>
-<html lang="en" data-theme={themeId}>
+<html lang={lang} data-theme={themeId}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -129,7 +132,7 @@ const plausibleSrc = (() => {
       document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
 
       // count-up numbers
-      const fmt = new Intl.NumberFormat('en');
+      const fmt = new Intl.NumberFormat(document.documentElement.lang || 'en');
       const counters = new IntersectionObserver((entries) => {
         entries.forEach((e) => {
           if (!e.isIntersecting) return;

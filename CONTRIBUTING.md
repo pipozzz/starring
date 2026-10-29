@@ -103,6 +103,28 @@ That creates `src/themes/noir/` with two files:
 - Motion respects `prefers-reduced-motion`.
 - The PR includes a screenshot of the hero and of one act.
 
+### Add a language
+
+Story labels are translatable via `src/story/i18n/`. Adding a language takes one file:
+
+1. Copy `src/story/i18n/en.ts` to `src/story/i18n/<lang>.ts` (use a BCP 47 tag, e.g. `de.ts`, `fr.ts`, `pt.ts`).
+2. Translate each string in your new file. Keep the TypeScript structure unchanged.
+3. Add your language to `SUPPORTED_LANGS` in `src/lib/model.ts`.
+4. Import and register your dictionary in `src/story/i18n/index.ts`.
+5. Run `npm run check` — a missing key fails the build, so the compiler catches incomplete translations.
+
+The type `I18nStrings` in `en.ts` defines the shape. Your translation file should use `satisfies I18nStrings` so any missing or mistyped key causes a type error.
+
+**Plural forms:** Use `Intl.PluralRules` for plurals — see the existing functions in `en.ts` and `es.ts` for examples. Never hard-code plural logic.
+
+**Number formatting:** `ProfileStory` uses `Intl.NumberFormat` with the resolved language. You don't need to do anything special for these.
+
+**Checklist for a language PR:**
+- All keys in `en.ts` are present in your translation.
+- `npm run check` passes (types).
+- `npm run build && npm run test:a11y` passes — longer strings may need CSS tweaks.
+- Check that your language looks right on desktop and phone (set `lang: <your-lang>` in a test profile's YAML and use the editor preview).
+
 ## Commits and PRs
 
 - Write small, focused PRs with a short description of *why*.

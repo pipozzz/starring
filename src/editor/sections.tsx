@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { THIS_YEAR, type Issues, type Profile } from '../lib/model';
+import { SUPPORTED_LANGS, THIS_YEAR, type Issues, type Profile } from '../lib/model';
 import { resolveSnippet } from '../lib/plausible';
 import { link } from '../lib/url';
 import { DEFAULT_THEME, THEMES, getTheme } from '../themes';
 import ListEditor from './ListEditor';
 import PhotoField from './PhotoField';
 import { Area, Chips, Combo, Num, Segmented, Text, Toggle } from './fields';
+
+const LANG_OPTIONS = SUPPORTED_LANGS.map((l) => ({ id: l, label: l.toUpperCase() }));
 
 export interface SectionProps {
   p: Profile;
@@ -43,6 +45,14 @@ export function ProfileSection({ p, up, issues, notify, canUpload = false }: Sec
         <div className="wide">
           <Toggle label="Available for work" hint="Shows a badge in the hero" checked={me.available} onChange={(available) => set({ available })} />
         </div>
+        <Combo
+          label="Language"
+          value={me.lang || 'en'}
+          options={LANG_OPTIONS.map((o) => o.id)}
+          onChange={(lang) => set({ lang: lang || undefined })}
+          error={issues['profile.lang']}
+          hint={`Story labels and number formatting (${SUPPORTED_LANGS.join(', ')})`}
+        />
       </div>
 
       <h3 className="ed-sub">Theme</h3>

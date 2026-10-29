@@ -3,6 +3,7 @@ import Layout from '../components/Layout.astro';
 import ProfileStory from '../story/ProfileStory';
 import ProfileAnalytics from '../components/ProfileAnalytics.astro';
 import { SERVER_MODE, store, totals } from '../lib/profiles';
+import { resolveLang } from '../lib/model';
 import { link, pageLink } from '../lib/url';
 import { profileDescription, profileJsonLd, profileTitle, siteJsonLd } from '../lib/seo';
 import { publicBase } from '../lib/site';
@@ -20,7 +21,7 @@ if (SERVER_MODE) {
 }
 ---
 {me ? (
-<Layout title={profileTitle(me)} description={profileDescription(me)} theme={me.theme} fonts={[me.theme]} type="profile" image={`og/${me.handle}.png`} jsonLd={profileJsonLd(me, new URL(pageLink(), base).href, new URL(link(`og/${me.handle}.png`), base).href)}>
+<Layout title={profileTitle(me)} description={profileDescription(me)} theme={me.theme} lang={resolveLang(me.profile?.lang)} fonts={[me.theme]} type="profile" image={`og/${me.handle}.png`} jsonLd={profileJsonLd(me, new URL(pageLink(), base).href, new URL(link(`og/${me.handle}.png`), base).href)}>
   <main id="content" tabindex="-1"><ProfileStory p={me} /></main>
   <ProfileAnalytics p={me} />
 </Layout>

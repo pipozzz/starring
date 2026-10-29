@@ -3,6 +3,7 @@ import Layout from '../components/Layout.astro';
 import ProfileStory from '../story/ProfileStory';
 import ProfileAnalytics from '../components/ProfileAnalytics.astro';
 import { SERVER_MODE, store, type Profile } from '../lib/profiles';
+import { resolveLang } from '../lib/model';
 import { link, pageLink } from '../lib/url';
 import { profileDescription, profileJsonLd, profileTitle } from '../lib/seo';
 import { publicBase } from '../lib/site';
@@ -35,6 +36,7 @@ const oembed = SERVER_MODE ? `${new URL(link('oembed'), publicBase(Astro.site, A
   title={profileTitle(profile)}
   description={profileDescription(profile)}
   theme={profile.theme}
+  lang={resolveLang(profile.profile?.lang)}
   fonts={[profile.theme]}
   type="profile"
   image={image}
