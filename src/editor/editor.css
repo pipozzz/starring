@@ -332,9 +332,10 @@ a.ed-btn { text-decoration: none; display: inline-flex; align-items: center; }
 /* ---- find updates ---- */
 .ed-discover-btn { display: block; width: calc(100% - 16px); margin: 8px 8px 0; padding: 8px 10px; border: 1px dashed var(--line); background: none; color: var(--fg); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; text-align: left; cursor: pointer; }
 .ed-discover-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ed-discover-btn .ed-count { background: var(--accent); color: var(--accent-ink, #0a0a0a); margin-left: 8px; }
 .ed-discover { list-style: none; padding: 0 !important; }
 .ed-discover li { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .ed-discover li > span:first-child { display: grid; gap: 2px; min-width: 0; }
 .ed-discover li .muted { font-size: 12px; overflow-wrap: anywhere; }
 .ed-discover-actions { display: flex; gap: 6px; flex: none; }
-@media (max-width: 1280px) { .ed-discover-btn span { display: none; } .ed-discover-btn { text-align: center; padding: 8px 0; font-size: 14px; } }
+@media (max-width: 1280px) { .ed-discover-btn span { display: none; } .ed-discover-btn .ed-count { margin-left: 4px; } .ed-discover-btn { text-align: center; padding: 8px 0; font-size: 14px; } }

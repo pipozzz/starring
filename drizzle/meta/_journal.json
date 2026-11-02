@@ -50,6 +50,13 @@
       "when": 1793095189442,
       "tag": "0006_discovery_dismissals",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793607873414,
+      "tag": "0007_weekly_discovery",
+      "breakpoints": true
     }
   ]
 }
