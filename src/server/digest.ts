@@ -1,9 +1,12 @@
-// The weekly email to stage owners: last week's visitors, the trend, where they came from.
+// The weekly email to stage owners: last week's visitors, the trend, where they came from — and
+// what the weekly GitHub check found to add to the stage (src/server/discovery.ts).
 // On only when the instance has both owner stats (PLAUSIBLE_API_KEY) and SMTP; WEEKLY_DIGEST=false
 // turns it off anyway, and every owner can unsubscribe (Account, or the link in each email).
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { and, eq, isNull, sql } from 'drizzle-orm';
+import type { Profile } from '../lib/model';
 import { db, schema } from './db';
+import { discoveryEnabled, pendingUpdates } from './discovery';
 import { mailEnabled, sendMail, type Mail } from './mail';
 import { lastWeeks, statsConfig, trailerLine, weekStats, type WeekStats } from './stats';
 
@@ -40,9 +43,21 @@ const trend = (now: number, before: number) => {
 };
 const human = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
-/** The digest, or null when there's nothing to tell (no visitors two weeks running). */
-export function digestMail(to: { email: string; name: string }, handle: string, s: WeekStats, urls: { account: string; stage: string; unsubscribe: string }): Mail | null {
-  if (!s.visitors && !s.previous) return null;
+/** The digest, or null when there's nothing to tell (no visitors two weeks running, nothing new on GitHub). */
+export function digestMail(to: { email: string; name: string }, handle: string, s: WeekStats, urls: { account: string; stage: string; edit: string; unsubscribe: string }, updates = 0): Mail | null {
+  const things = `${updates} ${updates === 1 ? 'thing' : 'things'}`;
+  if (!s.visitors && !s.previous) {
+    if (!updates) return null;
+    return {
+      to: to.email,
+      subject: `GitHub has ${things} to add to your stage`,
+      heading: `${things} to add`,
+      body: `New projects, contributions or stars on GitHub that /${handle} doesn't show yet. Add the ones you want to your draft and publish.`,
+      action: { label: 'Review in the editor', url: urls.edit },
+      footer: `Your stage: ${urls.stage} · You get this once a week. Unsubscribe: ${urls.unsubscribe}`,
+      headers: { 'List-Unsubscribe': `<${urls.unsubscribe}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+    };
+  }
   const people = `${s.visitors} ${s.visitors === 1 ? 'person' : 'people'}`;
   const t = trend(s.visitors, s.previous);
   const rows: [string, string][] = [
@@ -51,6 +66,7 @@ export function digestMail(to: { email: string; name: string }, handle: string, 
     ...(s.sources.length ? [['Came from', s.sources.map((x) => `${x.name} ${x.visitors}`).join(' · ')] as [string, string]] : []),
     ...(s.countries.length ? [['Countries', s.countries.map((x) => x.name).join(' · ')] as [string, string]] : []),
     ...(s.trailer?.views ? [['Your trailer', trailerLine(s.trailer)] as [string, string]] : []),
+    ...(updates ? [['New on GitHub', `${things} to add — ${urls.edit}`] as [string, string]] : []),
   ];
   return {
     to: to.email,
@@ -69,21 +85,24 @@ export function digestMail(to: { email: string; name: string }, handle: string, 
 /** Build and send one owner's digest now (no weekly lock) — for the admin preview. */
 export async function sendDigestTo(userId: string, base: string, now = new Date()) {
   const [r] = await db
-    .select({ email: user.email, name: user.name, handle: profile.handle })
+    .select({ email: user.email, name: user.name, handle: profile.handle, data: profile.data })
     .from(profile)
     .innerJoin(user, eq(user.id, profile.userId))
     .where(eq(profile.userId, userId));
   if (!r) throw new Error('Claim and publish a stage first');
   const s = await weekStats(pageLink(r.handle), now);
   if (!s) throw new Error('Owner stats are off (PLAUSIBLE_API_KEY)');
-  const mail = digestMail(r, r.handle, s, urls(base, userId, r.handle));
-  if (!mail) return { sent: false, reason: 'No visitors the last two weeks — nothing to send', stats: s };
+  const mail = digestMail(r, r.handle, s, urls(base, userId, r.handle), await updatesFor(userId, r.data));
+  if (!mail) return { sent: false, reason: 'No visitors the last two weeks and nothing new on GitHub — nothing to send', stats: s };
   await sendMail(mail);
   return { sent: true, to: r.email, stats: s };
 }
 
+const updatesFor = (userId: string, draft: Profile) => (discoveryEnabled() ? pendingUpdates(userId, draft).catch(() => 0) : Promise.resolve(0));
+
 const urls = (base: string, userId: string, handle: string) => ({
   account: new URL('account', base).href,
+  edit: new URL('edit', base).href,
   stage: new URL(pageLink(handle).replace(/^\//, ''), base).href,
   unsubscribe: unsubscribeUrl(base, userId),
 });
@@ -96,7 +115,7 @@ export async function sendDigests(base: string, now = new Date()) {
   const monday = new Date(`${week[1]}T00:00:00Z`).getTime() + 864e5; // the Monday after last week ended
   if (now.getTime() < monday + 8 * 3600e3) return { week: week[0], sent: 0, skipped: 'before Monday 08:00 UTC' };
   const owners = await db
-    .select({ userId: user.id, email: user.email, name: user.name, handle: profile.handle })
+    .select({ userId: user.id, email: user.email, name: user.name, handle: profile.handle, data: profile.data })
     .from(profile)
     .innerJoin(user, eq(user.id, profile.userId))
     .leftJoin(emailPref, eq(emailPref.userId, user.id))
@@ -108,7 +127,7 @@ export async function sendDigests(base: string, now = new Date()) {
     if (!claimed.length) continue;
     try {
       const s = await weekStats(pageLink(o.handle), now);
-      const mail = s && digestMail(o, o.handle, s, urls(base, o.userId, o.handle));
+      const mail = s && digestMail(o, o.handle, s, urls(base, o.userId, o.handle), await updatesFor(o.userId, o.data));
       if (mail) { await sendMail(mail); sent++; }
     } catch (e) {
       // Plausible or SMTP trouble: release the claim so the next hourly run retries

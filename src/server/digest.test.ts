@@ -6,7 +6,7 @@ process.env.BETTER_AUTH_SECRET = 'test-secret';
 const { digestMail, unsubscribeUrl, validUnsubscribe } = await import('./digest');
 
 const week = { from: '2026-10-12', to: '2026-10-18', visitors: 12, pageviews: 30, previous: 10, sources: [{ name: 'LinkedIn', visitors: 8 }, { name: 'Direct / none', visitors: 3 }], countries: [{ name: 'Slovakia', visitors: 7 }, { name: 'Czechia', visitors: 3 }] };
-const urls = { account: 'https://starring.dev/account', stage: 'https://starring.dev/jane/', unsubscribe: 'https://starring.dev/api/digest/unsubscribe?u=u1&t=x' };
+const urls = { account: 'https://starring.dev/account', edit: 'https://starring.dev/edit', stage: 'https://starring.dev/jane/', unsubscribe: 'https://starring.dev/api/digest/unsubscribe?u=u1&t=x' };
 const to = { email: 'jane@example.com', name: 'Jane' };
 
 test('the digest says who came, the trend and the sources', () => {
@@ -27,6 +27,15 @@ test('singular, quiet and empty weeks', () => {
   assert.equal(quiet.subject, 'A quiet week on your stage');
   assert.deepEqual(quiet.rows![0], ['Visitors', '0 · -100% vs the week before']);
   assert.equal(digestMail(to, 'jane', { ...week, visitors: 0, previous: 0 }, urls), null, 'nothing two weeks running → no email');
+});
+
+test('what the weekly GitHub check found: a row, or an email of its own in a quiet fortnight', () => {
+  assert.deepEqual(digestMail(to, 'jane', week, urls, 3)!.rows!.at(-1), ['New on GitHub', '3 things to add — https://starring.dev/edit']);
+  assert.ok(!digestMail(to, 'jane', week, urls)!.rows!.some((r) => r[0] === 'New on GitHub'), 'no row when nothing is new');
+  const only = digestMail(to, 'jane', { ...week, visitors: 0, previous: 0 }, urls, 1)!;
+  assert.equal(only.subject, 'GitHub has 1 thing to add to your stage');
+  assert.equal(only.action.url, 'https://starring.dev/edit');
+  assert.match(only.footer, /Unsubscribe/);
 });
 
 test('unsubscribe links are signed per user', () => {

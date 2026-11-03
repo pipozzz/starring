@@ -8,6 +8,7 @@ import { link, pageLink } from '../../lib/url';
 import { ownerStats, statsConfig, type OwnerStats } from '../stats';
 import { domainsEnabled, getDomain } from '../domains';
 import { digestEnabled, wantsWeeklyDigest } from '../digest';
+import { discoveryEnabled, wantsWeeklyDiscovery } from '../discovery';
 
 export const prerender = false;
 
@@ -26,6 +27,7 @@ if (own?.published && statsConfig()) {
   stats = await ownerStats(pageLink(own.handle)).catch((e) => (console.error('[stats]', e.message), 'error' as const));
 }
 const weekly = own && digestEnabled() ? await wantsWeeklyDigest(session.user.id) : null;
+const findWeekly = own && discoveryEnabled() ? await wantsWeeklyDiscovery(session.user.id) : null;
 const domain = own && domainsEnabled() ? await getDomain(session.user.id) : null;
 const peak = stats && stats !== 'error' ? Math.max(1, ...stats.daily.map((d) => d.visitors)) : 1;
 /** "Chrome on macOS" from a user agent — good enough to recognise your own devices. */
@@ -134,6 +136,15 @@ const device = (ua?: string | null) => {
         <p class="mono muted">Email</p>
         <label class="check"><input type="checkbox" id="weekly" checked={weekly} /> <span>Weekly email: who visited my stage, and where they came from (Mondays)</span></label>
         <p class="muted" id="weekly-status" role="status"></p>
+      </section>
+    )}
+
+    {findWeekly !== null && (
+      <section class="card">
+        <p class="mono muted">Updates from GitHub</p>
+        <label class="check"><input type="checkbox" id="find-weekly" checked={findWeekly} /> <span>Every week, look on GitHub for new projects, contributions and stars I could add to my stage</span></label>
+        <p class="muted">You'll see them under <a href={link('edit/')}>↻ Find updates</a> in the editor{weekly !== null && ' and in the Monday email'}. Nothing changes on your stage until you add and publish it.</p>
+        <p class="muted" id="find-weekly-status" role="status"></p>
       </section>
     )}
 
@@ -249,6 +260,12 @@ const device = (ua?: string | null) => {
     const box = e.currentTarget as HTMLInputElement;
     const res = await fetch('/api/digest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ weekly: box.checked }) });
     document.getElementById('weekly-status')!.textContent = res.ok ? (box.checked ? 'On — see you Monday.' : 'Off.') : 'Could not save — try again.';
+    if (!res.ok) box.checked = !box.checked;
+  });
+  document.getElementById('find-weekly')?.addEventListener('change', async (e) => {
+    const box = e.currentTarget as HTMLInputElement;
+    const res = await fetch('/api/discover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ weekly: box.checked }) });
+    document.getElementById('find-weekly-status')!.textContent = res.ok ? (box.checked ? 'On.' : 'Off.') : 'Could not save — try again.';
     if (!res.ok) box.checked = !box.checked;
   });
   // custom domain: connect, verify, remove

@@ -125,6 +125,8 @@ export const accessRequest = pgTable(
 export const emailPref = pgTable('email_pref', {
   userId: text('user_id').primaryKey().references(() => user.id, { onDelete: 'cascade' }),
   weeklyDigest: boolean('weekly_digest').notNull().default(true),
+  /** Look on GitHub every week for things to add to the stage (src/server/discovery.ts). */
+  weeklyDiscovery: boolean('weekly_discovery').notNull().default(true),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -149,3 +151,15 @@ export const discoveryDismissal = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.key] })],
 );
+
+/** The owner's latest GitHub check: the fresh import itself, so suggestions are worked out against
+ *  whatever the draft is when they look (src/lib/discover.ts). One row per owner, refreshed weekly. */
+export const discoveryCheck = pgTable('discovery_check', {
+  userId: text('user_id').primaryKey().references(() => user.id, { onDelete: 'cascade' }),
+  login: text('login').notNull(),
+  /** 'account' — read with the owner's GitHub sign-in; 'link' — public data for their GitHub link */
+  source: text('source').notNull(),
+  found: jsonb('found').$type<Profile>(),
+  error: text('error'),
+  checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
+});

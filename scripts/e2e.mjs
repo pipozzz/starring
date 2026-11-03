@@ -202,9 +202,19 @@ try {
     assert.match(r.error, /GitHub link/);
     assert.equal((await expect(await call('POST', '/api/discover', { dismiss: 'project:https://github.com/x/y' }), 200)).ok, true);
     assert.equal((await expect(await call('POST', '/api/discover', { dismiss: 'project:https://github.com/x/y' }), 200)).ok, true, 'dismissing twice is fine');
+    const stored = await expect(await call('GET', '/api/discover'), 200);
+    assert.equal(stored.check, null, 'no GitHub to ask → nothing stored');
+    if (stored.weekly !== null) {
+      assert.equal(stored.weekly, true, 'the weekly check is on by default');
+      assert.deepEqual(await expect(await call('POST', '/api/discover', { weekly: false }), 200), { weekly: false });
+      assert.equal((await expect(await call('GET', '/api/discover'), 200)).weekly, false);
+      await expect(await call('POST', '/api/discover', { weekly: 'no' }), 400);
+      await expect(await call('POST', '/api/discover', { weekly: true }), 200);
+    }
     const before = as;
     as = 'anon';
     assert.equal((await call('POST', '/api/discover', { draft: noLink })).status, 401);
+    assert.equal((await call('GET', '/api/discover')).status, 401);
     as = before;
   });
   await step('photo upload: EXIF stripped, served inertly, on the page and poster (when STORAGE is set)', async () => {

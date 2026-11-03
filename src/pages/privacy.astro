@@ -26,8 +26,9 @@ const analytics = !!process.env.PLAUSIBLE_SRC;
       <ul>
         <li><b>Account:</b> name, email address, a hashed password (if you use one), whether your email is confirmed, and sign-in sessions (with IP address and browser, to keep you signed in and protect the account).</li>
         <li><b>Access requests</b> (while sign-ups are invite-only): the email, name, link and note you leave, used only to decide on and send your invite. Deleted with your account, or on request.</li>
-        <li><b>Sign-in with GitHub or GitLab:</b> your account id there and the access token it issues, used only to import your public profile and contribution counts when you ask.</li>
+        <li><b>Sign-in with GitHub or GitLab:</b> your account id there and the access token it issues, used only to import your public profile and contribution counts when you ask, and for the weekly GitHub check below.</li>
         <li><b>Your profile:</b> the content you enter or import — name, role, clients, projects, timeline, education, skills, links and commit counts — and whether it is published.</li>
+        <li><b>Weekly GitHub check</b> (live stages, unless you turn it off in Account): once a week we look up your GitHub account — your repositories, organisations, merged pull requests, stars and yearly contribution counts — and keep the latest result, plus the suggestions you dismissed, to offer under <i>Find updates</i>. Nothing from it appears on your stage unless you add and publish it. Replaced by each new check; deleted with your account.</li>
         <li><b>Reports:</b> if you report a profile, the reason and details you give.</li>
       </ul>
 
