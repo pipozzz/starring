@@ -82,13 +82,14 @@ const customStage = async (request: Request, url: URL) => {
   return handle ? { host, handle } : null;
 };
 
-// the weekly digest runs inside the server process; start it with the first request
+// the weekly digest and GitHub check run inside the server process; start them with the first request
 let digestStarted = false;
 
 export const onRequest = defineMiddleware(async (ctx, next) => {
   if (SERVER && !digestStarted && canonical) {
     digestStarted = true;
     import('./server/digest').then((m) => m.startDigestScheduler(`${canonical}${BASE}/`)).catch((e) => console.error('[digest]', e.message));
+    import('./server/discovery').then((m) => m.startDiscoveryScheduler()).catch((e) => console.error('[discovery]', e.message));
   }
   const moved = movedTo(ctx.request, ctx.url);
   if (moved) return moved;

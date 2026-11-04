@@ -11,8 +11,8 @@ import GithubDialog from './GithubDialog';
 import ShareDialog from './ShareDialog';
 import CvDialog from './CvDialog';
 import ReviewDialog from './ReviewDialog';
-import DiscoverDialog from './DiscoverDialog';
-import { applyChange } from '../lib/discover';
+import DiscoverDialog, { type Check } from './DiscoverDialog';
+import { applyChange, discover } from '../lib/discover';
 import { countChanges, diffProfiles } from '../lib/diff';
 import Onboarding from './Onboarding';
 import { useServer, type SyncStatus } from './useServer';
@@ -177,6 +177,17 @@ export default function Editor({ samples }: Props) {
   const ready = useMemo(() => readiness(p), [p]);
   // what the draft would change on the public stage (only once there is one)
   // (the live copy gets the same defaults the editor fills in, so opening a stage isn't a "change")
+  // the weekly GitHub check (src/server/discovery.ts): its suggestions, against the draft as it is now
+  const [check, setCheck] = useState<Check | null>(null);
+  const ownHandle = server.own?.handle;
+  useEffect(() => {
+    if (!ownHandle) return;
+    fetch('/api/discover', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.check && setCheck(d.check))
+      .catch(() => {});
+  }, [ownHandle]);
+  const updates = useMemo(() => (check?.found ? discover(p, check.found, new Set(check.dismissed)).length : 0), [check, p]);
   const changes = useMemo(() => (server.own?.published && server.own.live ? diffProfiles(normalize(server.own.live), p) : []), [server.own, p]);
   const changeCount = countChanges(changes);
   const issueCount = Object.keys(issues).length;
@@ -472,8 +483,8 @@ export default function Editor({ samples }: Props) {
             <span><span className="mono">Stage ready</span><span className="ed-hint">{ready.todo.length ? `${ready.todo.length} to go` : 'Starring!'}</span></span>
           </button>
           {server.own && (
-            <button type="button" className="ed-discover-btn mono" onClick={() => setDiscoverOpen(true)} title="Look on GitHub for new projects, contributions and stars">
-              ↻ <span>Find updates</span>
+            <button type="button" className="ed-discover-btn mono" onClick={() => setDiscoverOpen(true)} title={updates ? `${updates} update${updates === 1 ? '' : 's'} from GitHub to add` : 'Look on GitHub for new projects, contributions and stars'}>
+              ↻ <span>Find updates</span>{updates > 0 && <b className="ed-count" aria-label={`${updates} new`}>{updates}</b>}
             </button>
           )}
           {menu === 'ready' && ready.todo.length > 0 && (
@@ -563,6 +574,8 @@ export default function Editor({ samples }: Props) {
       {discoverOpen && (
         <DiscoverDialog
           draft={p}
+          check={check}
+          onCheck={setCheck}
           onApply={(changes) => commit(changes.reduce(applyChange, p))}
           onSection={pick}
           onClose={() => setDiscoverOpen(false)}
