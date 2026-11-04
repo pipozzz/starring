@@ -353,7 +353,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
           <div className="quotes">
             {testimonials.map((x, i) => (
               <figure className="quote reveal" key={i}>
-                <span className="quote-mark display accent" aria-hidden="true">"</span>
+                <span className="quote-mark display accent" aria-hidden="true">“</span>
                 <blockquote>{x.quote}</blockquote>
                 <figcaption className="mono">
                   — {x.url ? <a href={x.url}>{x.name}</a> : x.name}
