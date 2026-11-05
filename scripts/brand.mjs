@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Generate the Starring brand assets: `npm run brand`.
 //
-// The mark (v2): a four-point star cut out of an acid tile — the headline act, legible from a
-// 16 px browser tab to an app icon. The wordmark is a lowercase grotesk "starring".
+// The mark (v3): a five-point star, the Walk of Fame kind, cut out of an acid tile — the headline
+// act, legible from a 16 px browser tab to an app icon. The wordmark is a lowercase grotesk "starring".
 // SVGs are composed by hand; satori only turns the wordmark text into outlines,
 // so nothing depends on installed fonts.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -26,8 +26,8 @@ const ACID = '#d4ff00';
 const OLIVE = '#5f7000'; // acid's partner on light backgrounds (AA on bone)
 
 // ---------- the mark (64×64 grid) ----------
-// A star with a quadratic waist: full enough to survive 16 px, still unmistakably a star.
-const STAR = 'M32 9Q34.6 29.4 55 32Q34.6 34.6 32 55Q29.4 34.6 9 32Q29.4 29.4 32 9Z';
+// A classic five-point star (inner radius 0.41 of the outer), set a little low so it sits optically centred.
+const STAR = 'M32 11L37.5 26.4L53.9 26.9L40.9 36.9L45.5 52.6L32 43.4L18.5 52.6L23.1 36.9L10.1 26.9L26.5 26.4Z';
 /** The tile with the star cut out. `square` = full bleed (iOS rounds its own corners). */
 const markBody = ({ tile = ACID, star = INK, square = false } = {}) =>
   `<rect ${square ? 'width="64" height="64"' : 'x="2" y="2" width="60" height="60" rx="15"'} fill="${tile}"/><path d="${STAR}" fill="${star}"/>`;
@@ -97,7 +97,7 @@ writeFileSync('public/brand/logo-light.svg', logoLight);
 
 // Presentation sheet
 {
-  const title = await textSvg(h('div', { style: { display: 'flex', fontFamily: 'JetBrains Mono', fontSize: 20, letterSpacing: 3, color: ACID } }, 'STARRING — BRAND v2'), 600, 30);
+  const title = await textSvg(h('div', { style: { display: 'flex', fontFamily: 'JetBrains Mono', fontSize: 20, letterSpacing: 3, color: ACID } }, 'STARRING — BRAND v3'), 600, 30);
   const note = await textSvg(h('div', { style: { display: 'flex', fontFamily: 'Space Grotesk', fontSize: 26, color: '#8a877e' } }, 'A star cut out of an acid tile: the headline act. Legible from a 16 px browser tab to an app icon; acid on dark, ink on light.'), 1290, 80);
   const lw = Number(/width="(\d+)"/.exec(logoDark)[1]);
   const lh = Number(/height="(\d+)"/.exec(logoDark)[1]);
