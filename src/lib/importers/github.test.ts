@@ -172,3 +172,39 @@ test("an org repo where you're the top contributor is your project, not a guest 
   assert.equal(profile.openSource?.[0].url, 'https://github.com/bigco/engine/commits?author=Octo-Dev');
   assert.ok(notes.some((n) => /nomploy lives under an organisation, but it’s yours/.test(n)));
 });
+
+test('with a token, the contribution graph brings back projects from years ago', async () => {
+  const calls: string[] = [];
+  const year = (n: number, repos: [string, number, boolean?][]) => ({ commitContributionsByRepository: repos.map(([name, total, priv]) => ({
+    repository: { nameWithOwner: name, isPrivate: !!priv, owner: { login: name.split('/')[0] } }, contributions: { totalCount: total },
+  })), contributionCalendar: { totalContributions: n }, restrictedContributionsCount: 0 });
+  globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
+    const url = String(input);
+    calls.push(url);
+    const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
+    if (url.endsWith('/graphql')) {
+      const q = String(JSON.parse(String(init?.body)).query);
+      if (q.includes('contributionYears')) return ok({ data: { user: { contributionsCollection: { contributionYears: [2021, 2019, 2018] } } } });
+      return ok({ data: { user: {
+        y2021: year(300, [['Octo-Dev/star', 90]]),
+        y2019: year(200, [['oldco/legacy', 40], ['client/internal', 70, true]]),
+        y2018: year(100, [['oldco/legacy', 25]]),
+      } } });
+    }
+    if (url.includes('/search/')) return ok({ items: [] });
+    if (url.includes('/repos/oldco/legacy/contributors')) return ok([{ login: 'boss', contributions: 900 }, { login: 'octo-dev', contributions: 65 }]);
+    if (url.includes('/repos/oldco/legacy')) return ok({ full_name: 'oldco/legacy', name: 'legacy', description: 'Billing engine', language: 'Java', stargazers_count: 310, private: false, fork: false, archived: false, html_url: 'https://github.com/oldco/legacy', homepage: null, pushed_at: '2024-01-01T00:00:00Z', owner: { login: 'oldco', type: 'Organization' } });
+    if (url.includes('/users/Octo-Dev/repos')) return ok(repos);
+    if (url.includes('/users/Octo-Dev')) return ok(user);
+    return new Response('{}', { status: 404 });
+  }) as typeof fetch;
+
+  const { profile } = await importGithub('Octo-Dev', { token: 't', deep: true });
+  assert.deepEqual(profile.openSource?.map((o) => o.repo), ['oldco/legacy'], 'own repos and private repos stay out');
+  const legacy = profile.openSource![0];
+  assert.equal(legacy.what, '65 commits, 2018–2019');
+  assert.equal(legacy.year, 2019);
+  assert.equal(legacy.stars, 310);
+  assert.ok(!calls.some((c) => c.includes('client/internal')), 'never asks about a private repo');
+  assert.ok(calls.some((c) => c.includes('page=1')), 'reads repos by page');
+});

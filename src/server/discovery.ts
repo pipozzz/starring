@@ -4,6 +4,7 @@
 // draft as it is when the owner looks (src/lib/discover.ts), so nothing goes stale.
 // Reads with the owner's GitHub sign-in when they have one, else the instance's GITHUB_TOKEN for
 // their GitHub link; without either it waits for the owner's own "Find updates".
+// With a token it reads every year of their contribution graph, so projects from years ago come back too.
 // On unless DISCOVERY=false; every owner can turn it off in Account.
 import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import { discover } from '../lib/discover';
@@ -53,7 +54,8 @@ export interface Check {
 /** Look on GitHub now and keep the result. Throws NoGithub or GithubImportError. */
 export async function checkGithub(userId: string, draft: Profile, opts = { anonymous: true }, now = new Date()) {
   const who = await whoOnGithub(userId, draft, opts);
-  const found = (await importGithub(who.login, { token: who.token })).profile;
+  // a token reaches every year of the contribution graph; anonymous reads stay small (60 an hour)
+  const found = (await importGithub(who.login, { token: who.token, deep: !!who.token })).profile;
   const row = { login: who.login, source: who.source, found, error: null, checkedAt: now };
   await db.insert(discoveryCheck).values({ userId, ...row }).onConflictDoUpdate({ target: discoveryCheck.userId, set: row });
   return row;

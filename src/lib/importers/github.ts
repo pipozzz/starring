@@ -114,18 +114,57 @@ interface GhRepoInfo {
   private: boolean; fork: boolean; archived: boolean; html_url: string; homepage: string | null; pushed_at: string; owner: { login: string; type: string };
 }
 
+interface RepoHistory { commits: number; first: number; last: number }
+
+/**
+ * Every repo the user committed to, in every year since they joined — GitHub's contribution graph
+ * by repository (needs a token, any token). Search only reaches the latest 100 PRs and commits;
+ * this goes back to the projects from years ago. Repos they own and private repos are left out.
+ */
+export const commitHistory = async (login: string, token: string): Promise<Map<string, RepoHistory>> => {
+  const yearsQ = await graphql<{ user: { contributionsCollection: { contributionYears: number[] } } }>(
+    token,
+    `query($login:String!){ user(login:$login){ contributionsCollection { contributionYears } } }`,
+    { login },
+  );
+  const years = yearsQ.user.contributionsCollection.contributionYears.slice(0, 20);
+  const out = new Map<string, RepoHistory>();
+  if (!years.length) return out;
+  const fields = years
+    .map((y) => `y${y}: contributionsCollection(from:"${y}-01-01T00:00:00Z", to:"${y}-12-31T23:59:59Z") { commitContributionsByRepository(maxRepositories:50) { repository { nameWithOwner isPrivate owner { login } } contributions { totalCount } } }`)
+    .join('\n');
+  type ByRepo = { repository: { nameWithOwner: string; isPrivate: boolean; owner: { login: string } }; contributions: { totalCount: number } }[];
+  const data = await graphql<{ user: Record<string, { commitContributionsByRepository: ByRepo }> }>(token, `query($login:String!){ user(login:$login){ ${fields} } }`, { login });
+  for (const year of years) {
+    for (const { repository: r, contributions: c } of data.user[`y${year}`]?.commitContributionsByRepository ?? []) {
+      if (r.isPrivate || r.owner.login.toLowerCase() === login.toLowerCase()) continue;
+      const h = out.get(r.nameWithOwner) ?? { commits: 0, first: year, last: year };
+      out.set(r.nameWithOwner, { commits: h.commits + c.totalCount, first: Math.min(h.first, year), last: Math.max(h.last, year) });
+    }
+  }
+  return out;
+};
+
+/** "2019", "2018–2021". */
+const span = (h?: { first: number; last: number }) => (!h ? '' : h.first === h.last ? `${h.first}` : `${h.first}–${h.last}`);
+
+/** How many projects one import looks at and keeps; `deep` (the weekly check) looks further. */
+const limits = (deep?: boolean) => (deep ? { prRepos: 20, commitRepos: 20, guest: 20, featured: 12, repoPages: 3 } : { prRepos: 10, commitRepos: 6, guest: 6, featured: 6, repoPages: 1 });
+
 /**
  * Repos the user doesn't own but worked on — found by their merged PRs and their commits — split
  * into the user's own projects that live under an organisation (they're the top contributor:
  * "Creator") and guest appearances in other people's projects. Biggest projects first.
  */
-export const otherRepos = async (login: string, token?: string): Promise<{ guest: OpenSource[]; own: { project: Project; stars: number }[] }> => {
+export const otherRepos = async (login: string, token?: string, { deep = false } = {}): Promise<{ guest: OpenSource[]; own: { project: Project; stars: number }[] }> => {
   const not = `-user:${login}`;
-  const [prs, commits] = await Promise.all([
+  const max = limits(deep);
+  const [prs, commits, history] = await Promise.all([
     get<{ items: GhSearchPr[] }>(`/search/issues?q=${encodeURIComponent(`is:pr is:merged author:${login} ${not}`)}&per_page=100&sort=updated`, token).catch(() => ({ items: [] })),
     get<{ items: GhSearchCommit[] }>(`/search/commits?q=${encodeURIComponent(`author:${login} ${not}`)}&per_page=100&sort=author-date`, token).catch(() => ({ items: [] })),
+    token ? commitHistory(login, token).catch(() => new Map<string, RepoHistory>()) : new Map<string, RepoHistory>(),
   ]);
-  const byRepo = new Map<string, { prs: GhSearchPr[]; commits: number; last: string }>();
+  const byRepo = new Map<string, { prs: GhSearchPr[]; commits: number; last: string; history?: RepoHistory }>();
   const at = (repo: string) => byRepo.get(repo) ?? (byRepo.set(repo, { prs: [], commits: 0, last: '' }), byRepo.get(repo)!);
   for (const pr of prs.items ?? []) {
     const r = at(pr.repository_url.replace(`${API}/repos/`, ''));
@@ -137,10 +176,18 @@ export const otherRepos = async (login: string, token?: string): Promise<{ guest
     r.commits++;
     if (c.commit.author.date > r.last) r.last = c.commit.author.date;
   }
-  // every repo with a merged PR (up to 10), plus the repos with the most commits
+  // the years before search reaches: same repo, whatever case GitHub spells it in
+  for (const [repo, h] of history) {
+    const key = [...byRepo.keys()].find((k) => k.toLowerCase() === repo.toLowerCase()) ?? repo;
+    const r = at(key);
+    r.history = h;
+    r.commits = Math.max(r.commits, h.commits);
+    if (`${h.last}` > r.last.slice(0, 4)) r.last = `${h.last}-12-31`;
+  }
+  // every repo with a merged PR, plus the repos with the most commits
   const entries = [...byRepo.entries()];
-  const withPrs = entries.filter(([, w]) => w.prs.length).sort((a, b) => b[1].prs.length - a[1].prs.length).slice(0, 10);
-  const byCommits = entries.filter(([, w]) => !w.prs.length).sort((a, b) => b[1].commits - a[1].commits).slice(0, 6);
+  const withPrs = entries.filter(([, w]) => w.prs.length).sort((a, b) => b[1].prs.length - a[1].prs.length).slice(0, max.prRepos);
+  const byCommits = entries.filter(([, w]) => !w.prs.length).sort((a, b) => b[1].commits - a[1].commits).slice(0, max.commitRepos);
   const candidates = [...withPrs, ...byCommits];
   const details = await Promise.all(
     candidates.map(([repo]) => Promise.all([
@@ -166,7 +213,7 @@ export const otherRepos = async (login: string, token?: string): Promise<{ guest
     if (info && ((leads(i) && !info.fork) || (mine && ownOrgs.has(info.owner.login.toLowerCase())))) {
       own.push({ stars: info.stargazers_count, project: {
         title: info.name,
-        year: new Date(info.pushed_at).getFullYear(),
+        year: w.history?.last ?? new Date(info.pushed_at).getFullYear(),
         visibility: 'public',
         role: leads(i) ? 'Creator' : 'Core team',
         blurb: info.description?.trim() || `Built under ${info.owner.login}.`,
@@ -185,7 +232,7 @@ export const otherRepos = async (login: string, token?: string): Promise<{ guest
       repo,
       what: latest
         ? w.prs.length === 1 ? prTitle(latest.title) : `${prTitle(latest.title)} and ${w.prs.length - 1} more`
-        : `${w.commits} ${w.commits === 1 ? 'commit' : 'commits'}`,
+        : `${w.commits.toLocaleString('en')} ${w.commits === 1 ? 'commit' : 'commits'}${w.history && w.history.first !== w.history.last ? `, ${span(w.history)}` : ''}`,
       kind: prKind(w.prs.map((x) => x.title)),
       url: latest
         ? w.prs.length === 1 ? latest.html_url : `https://github.com/${repo}/pulls?q=${encodeURIComponent(`is:pr is:merged author:${login}`)}`
@@ -196,7 +243,7 @@ export const otherRepos = async (login: string, token?: string): Promise<{ guest
     });
   });
   const byStars = <T extends { stars?: number }>(a: T, b: T) => (b.stars ?? 0) - (a.stars ?? 0);
-  return { guest: guest.sort(byStars).slice(0, 6), own };
+  return { guest: guest.sort(byStars).slice(0, max.guest), own };
 };
 
 /** A topic that's just the repo's or its owner's name ("nomploy" on Nomploy/nomad-packs). */
@@ -257,16 +304,31 @@ const toProject = (r: GhRepo): Project => {
 export const usernameFrom = (input: string) =>
   input.trim().replace(/^@/, '').replace(/^(https?:\/\/)?(www\.)?github\.com\//i, '').split(/[/?#]/)[0];
 
-export async function importGithub(input: string, opts: { token?: string; base?: Profile } = {}): Promise<GithubImport> {
+/**
+ * `deep`: look further back and keep more — the weekly check, whose finds are only suggestions.
+ * A first import keeps the stage short.
+ */
+export async function importGithub(input: string, opts: { token?: string; base?: Profile; deep?: boolean } = {}): Promise<GithubImport> {
   const login = usernameFrom(input);
   if (!/^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i.test(login)) throw new GithubImportError('That doesn’t look like a GitHub username');
   const token = opts.token?.trim() || undefined;
   const notes: string[] = [];
 
+  const max = limits(opts.deep);
+  const reposPage = (page: number) => get<GhRepo[]>(`/users/${login}/repos?per_page=100&sort=pushed&type=owner&page=${page}`, token);
   const [user, repos, other] = await Promise.all([
     get<GhUser>(`/users/${login}`, token),
-    get<GhRepo[]>(`/users/${login}/repos?per_page=100&sort=pushed&type=owner`, token),
-    otherRepos(login, token),
+    // older repos are on later pages: the weekly check reads up to 300
+    (async () => {
+      const all: GhRepo[] = [];
+      for (let page = 1; page <= max.repoPages; page++) {
+        const batch = page === 1 ? await reposPage(1) : await reposPage(page).catch(() => []);
+        all.push(...batch);
+        if (batch.length < 100) break;
+      }
+      return all;
+    })(),
+    otherRepos(login, token, { deep: opts.deep }),
   ]);
   const guest = other.guest;
 
@@ -277,7 +339,7 @@ export async function importGithub(input: string, opts: { token?: string; base?:
     ...other.own.map((o) => ({ ...o, pushed: `${o.project.year}` })),
   ]
     .sort((a, b) => b.stars - a.stars || b.pushed.localeCompare(a.pushed))
-    .slice(0, 6)
+    .slice(0, max.featured)
     .map((x) => x.project);
 
   const langs = new Map<string, number>();
