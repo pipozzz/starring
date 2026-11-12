@@ -51,7 +51,7 @@
 .marquee { overflow: hidden; border-block: 1px solid var(--line); padding: 2vh 0; }
 .marquee-track { display: flex; width: max-content; animation: st-slide 40s linear infinite; font-size: clamp(56px, 10cqi, 160px); }
 .client { padding-right: .4em; white-space: nowrap; }
-.client i { color: var(--accent); font-style: normal; padding-left: .4em; }
+.client .star { color: var(--accent); width: .62em; height: .62em; margin-left: .4em; vertical-align: .08em; }
 @keyframes st-slide { to { transform: translateX(-50%); } }
 .client-list { list-style: none; margin-top: 8vh; }
 .client-list li { display: grid; grid-template-columns: 2fr 1fr 6em; gap: 16px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--line); font-size: clamp(18px, 2cqi, 26px); }
@@ -97,6 +97,7 @@
 .awards { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 16px; }
 .award { border: 1px solid var(--line); padding: 28px; display: grid; gap: 10px; align-content: start; }
 .award-mark { font-size: 28px; line-height: 1; }
+.award-mark .star { width: .8em; height: .8em; display: block; }
 .award h3 { font-size: clamp(30px, 3.6cqi, 56px); line-height: 1; overflow-wrap: break-word; }
 .award h3 a { text-decoration: none; }
 .award h3 a:hover { color: var(--accent); }
