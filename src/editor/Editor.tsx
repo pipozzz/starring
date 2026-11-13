@@ -10,6 +10,7 @@ import { LINKEDIN_FILES, importLinkedIn, readLinkedInZip, type LinkedInFiles } f
 import { link, pageLink } from '../lib/url';
 import GithubDialog from './GithubDialog';
 import GitlabDialog from './GitlabDialog';
+import BitbucketDialog from './BitbucketDialog';
 import ShareDialog from './ShareDialog';
 import CvDialog from './CvDialog';
 import ReviewDialog from './ReviewDialog';
@@ -160,6 +161,7 @@ export default function Editor({ samples }: Props) {
   const [importMode, setImportMode] = useState<'fresh' | 'merge'>('merge');
   const [gh, setGh] = useState<{ open: boolean; user?: string; error?: string; busy?: boolean }>({ open: false });
   const [glOpen, setGlOpen] = useState(false);
+  const [bbOpen, setBbOpen] = useState(false);
   const [notes, setNotes] = useState<string[]>([]);
   const [onboardDismissed, setOnboardDismissed] = useState(false);
   // A new account that only saw the sample profile starts onboarding from a blank stage
@@ -259,6 +261,7 @@ export default function Editor({ samples }: Props) {
     setNotes(importNotes);
     setGh({ open: false });
     setGlOpen(false);
+    setBbOpen(false);
     setActive('profile');
     notify(`${label} — Cmd+Z to undo`, true);
   };
@@ -401,6 +404,7 @@ export default function Editor({ samples }: Props) {
               {cvProvider && <button type="button" className="ed-menu-gh" onClick={() => { setCvOpen(true); setMenu(null); }}>Your CV or any text… <span className="muted">AI draft</span></button>}
               <button type="button" className="ed-menu-gh" onClick={() => { setGh({ open: true }); setMenu(null); }}>GitHub profile… <span className="muted">instant draft</span></button>
               <button type="button" className="ed-menu-gh" onClick={() => { setGlOpen(true); setMenu(null); }}>GitLab profile… <span className="muted">gitlab.com or self-hosted</span></button>
+              <button type="button" className="ed-menu-gh" onClick={() => { setBbOpen(true); setMenu(null); }}>Bitbucket workspace… <span className="muted">public, or private with a token</span></button>
               <button type="button" onClick={() => { commit(blankProfile()); setMenu(null); notify('Blank stage — Cmd+Z to undo', true); }}>Blank stage</button>
               {samples.map((s) => (
                 <button type="button" key={s.handle} onClick={() => { commit(structuredClone(s)); setMenu(null); notify(`Loaded /${s.handle} — Cmd+Z to undo`, true); }}>
@@ -632,6 +636,7 @@ export default function Editor({ samples }: Props) {
         />
       )}
       {glOpen && <GitlabDialog current={p} onDone={imported} onClose={() => setGlOpen(false)} />}
+      {bbOpen && <BitbucketDialog current={p} onDone={imported} onClose={() => setBbOpen(false)} />}
       {gh.open && <GithubDialog current={p} initialUser={gh.user} initialError={gh.error} onDone={imported} onClose={() => setGh({ open: false })} />}
       {gh.busy && <div className="ed-busy display" role="status">Reading GitHub<span className="accent">…</span></div>}
       {importOpen && (
