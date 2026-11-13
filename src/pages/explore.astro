@@ -1,6 +1,7 @@
 ---
 // Directory of every published stage, filterable in the browser (works on static hosts too).
-// Filters live in the URL (?q=&skill=&loc=&available=1) so searches can be shared.
+// Filters and the order live in the URL (?q=&skill=&loc=&available=1&sort=) so searches can be shared.
+// Every card is in the HTML; with JavaScript the page shows 48 at a time with "Show more".
 import Layout from '../components/Layout.astro';
 import { SERVER_MODE, store, totals } from '../lib/profiles';
 import { link, pageLink } from '../lib/url';
@@ -8,6 +9,7 @@ import { getTheme } from '../themes';
 
 if (SERVER_MODE) Astro.response.headers.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
 
+const joined = await store.joined();
 const profiles = (await store.list()).map((p) => {
   const t = totals(p);
   const skills = [...new Set(Object.values(p.skills ?? {}).flat())];
@@ -18,6 +20,7 @@ const profiles = (await store.list()).map((p) => {
     skills,
     location,
     theme: getTheme(p.theme).id,
+    joined: joined[p.handle] ?? '',
     search: [p.profile.name, p.profile.role, p.profile.tagline, location, ...skills, ...(p.clients ?? []).filter((c) => !c.nda).map((c) => c.name)]
       .join(' ')
       .toLowerCase(),
@@ -29,6 +32,8 @@ profiles.forEach((x) => x.skills.forEach((s) => counts.set(s, (counts.get(s) ?? 
 const topSkills = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 14).map(([s]) => s);
 const locations = [...new Set(profiles.map((x) => x.location.split(',').pop()!.trim()).filter(Boolean))].sort();
 const n = (v: number) => v.toLocaleString('en');
+// "Newest" only where the instance knows when stages joined (server mode)
+const sorts = [...(Object.keys(joined).length ? [['new', 'Newest']] : []), ['exp', 'Most experience'], ['az', 'A–Z']];
 ---
 <Layout title="Explore developers — Starring" description={`${profiles.length} developer careers as scroll stories — search by role, skill, location and availability.`}>
   <main class="ex" id="content" tabindex="-1">
@@ -47,6 +52,9 @@ const n = (v: number) => v.toLocaleString('en');
           {locations.map((l) => <option value={l.toLowerCase()}>{l}</option>)}
         </select>
       )}
+      <select name="sort" aria-label="Sort" data-default={sorts[0][0]}>
+        {sorts.map(([v, label]) => <option value={v}>{label}</option>)}
+      </select>
       {topSkills.length > 0 && (
         <div class="chips" role="group" aria-label="Skill">
           {topSkills.map((s) => <button type="button" class="chip" data-skill={s.toLowerCase()} aria-pressed="false">{s}</button>)}
@@ -55,7 +63,7 @@ const n = (v: number) => v.toLocaleString('en');
     </form>
 
     <ul class="grid">
-      {profiles.map(({ p, t, skills, location, theme, search }) => (
+      {profiles.map(({ p, t, skills, location, theme, search, joined }) => (
         <li
           data-theme={theme}
           class="card"
@@ -63,6 +71,10 @@ const n = (v: number) => v.toLocaleString('en');
           data-skills={skills.map((s) => s.toLowerCase()).join('|')}
           data-loc={location.toLowerCase()}
           data-available={p.profile.available ? '1' : ''}
+          data-name={p.profile.name.toLowerCase()}
+          data-years={t.years}
+          data-commits={t.all}
+          data-joined={joined}
         >
           <a href={pageLink(p.handle)}>
             <span class="row mono">
@@ -85,6 +97,7 @@ const n = (v: number) => v.toLocaleString('en');
       ))}
     </ul>
     <p class="empty muted" hidden>No stages match — try fewer filters.</p>
+    <p class="more-row" hidden><button type="button" class="more mono">Show more</button></p>
   </main>
 </Layout>
 
@@ -95,6 +108,12 @@ const n = (v: number) => v.toLocaleString('en');
   const q = form.querySelector<HTMLInputElement>('.q')!;
   const avail = form.querySelector<HTMLInputElement>('[name=available]')!;
   const loc = form.querySelector<HTMLSelectElement>('[name=loc]');
+  const sort = form.querySelector<HTMLSelectElement>('[name=sort]')!;
+  const grid = document.querySelector<HTMLElement>('.grid')!;
+  const moreRow = document.querySelector<HTMLElement>('.more-row')!;
+  const more = moreRow.querySelector<HTMLButtonElement>('.more')!;
+  const PAGE = 48;
+  let limit = PAGE;
   const count = document.querySelector("[data-shown]")!;
   const empty = document.querySelector<HTMLElement>('.empty')!;
 
@@ -103,37 +122,62 @@ const n = (v: number) => v.toLocaleString('en');
   q.value = url.searchParams.get('q') ?? '';
   avail.checked = url.searchParams.get('available') === '1';
   if (loc) loc.value = url.searchParams.get('loc') ?? '';
+  const wanted = url.searchParams.get('sort');
+  sort.value = [...sort.options].some((o) => o.value === wanted) ? wanted! : sort.dataset.default!;
+
+  const byName = (a: HTMLElement, b: HTMLElement) => a.dataset.name!.localeCompare(b.dataset.name!);
+  const num = (c: HTMLElement, k: string) => Number(c.dataset[k]) || 0;
+  const order: Record<string, (a: HTMLElement, b: HTMLElement) => number> = {
+    new: (a, b) => b.dataset.joined!.localeCompare(a.dataset.joined!) || byName(a, b),
+    exp: (a, b) => num(b, 'years') - num(a, 'years') || num(b, 'commits') - num(a, 'commits') || byName(a, b),
+    az: byName,
+  };
   const picked = new Set((url.searchParams.get('skill') ?? '').split(',').filter(Boolean));
   chips.forEach((c) => c.setAttribute('aria-pressed', String(picked.has(c.dataset.skill!))));
 
   const apply = () => {
     const terms = q.value.toLowerCase().split(/\s+/).filter(Boolean);
     const skills = chips.filter((c) => c.getAttribute('aria-pressed') === 'true').map((c) => c.dataset.skill!);
+    // reorder the cards themselves, so reading and tab order follow the sort
+    grid.append(...[...cards].sort(order[sort.value] ?? byName));
     let shown = 0;
-    for (const c of cards) {
+    for (const c of grid.children as HTMLCollectionOf<HTMLElement>) {
       const ok =
         terms.every((t) => c.dataset.search!.includes(t)) &&
         (!avail.checked || c.dataset.available === '1') &&
         (!loc?.value || c.dataset.loc!.includes(loc.value)) &&
         skills.every((s) => c.dataset.skills!.split('|').includes(s));
-      c.hidden = !ok;
       if (ok) shown++;
+      c.hidden = !ok || shown > limit;
     }
     count.textContent = String(shown);
     empty.hidden = shown > 0;
+    moreRow.hidden = shown <= limit;
+    more.textContent = `Show more (${(shown - limit).toLocaleString('en')} left)`;
     const next = new URL(location.href);
     const set = (k: string, v: string) => (v ? next.searchParams.set(k, v) : next.searchParams.delete(k));
     set('q', q.value.trim());
     set('available', avail.checked ? '1' : '');
     set('loc', loc?.value ?? '');
     set('skill', skills.join(','));
+    set('sort', sort.value === sort.dataset.default ? '' : sort.value);
     history.replaceState(null, '', next);
   };
 
-  q.addEventListener('input', apply);
-  avail.addEventListener('change', apply);
-  loc?.addEventListener('change', apply);
-  chips.forEach((c) => c.addEventListener('click', () => { c.setAttribute('aria-pressed', String(c.getAttribute('aria-pressed') !== 'true')); apply(); }));
+  // a new search starts from the first page again
+  const fresh = () => { limit = PAGE; apply(); };
+  q.addEventListener('input', fresh);
+  avail.addEventListener('change', fresh);
+  loc?.addEventListener('change', fresh);
+  sort.addEventListener('change', fresh);
+  chips.forEach((c) => c.addEventListener('click', () => { c.setAttribute('aria-pressed', String(c.getAttribute('aria-pressed') !== 'true')); fresh(); }));
+  more.addEventListener('click', () => {
+    // keep the keyboard where the new cards start
+    const first = [...grid.children].filter((c) => !(c as HTMLElement).hidden).length;
+    limit += PAGE;
+    apply();
+    grid.querySelectorAll<HTMLElement>('.card:not([hidden]) a')[first]?.focus();
+  });
   apply();
 </script>
 
@@ -163,4 +207,7 @@ const n = (v: number) => v.toLocaleString('en');
   .stats b.accent { color: var(--accent); }
   .skills { display: flex; flex-wrap: wrap; gap: 6px; }
   .empty { margin-top: 24px; font-size: 18px; }
+  .more-row { margin-top: 28px; text-align: center; }
+  .more { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; padding: 14px 22px; background: transparent; color: var(--fg); border: 2px solid var(--fg); cursor: pointer; }
+  .more:hover, .more:focus-visible { border-color: var(--accent); color: var(--accent); }
 </style>

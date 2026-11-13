@@ -47,6 +47,12 @@ const publicDoc = (r: typeof profile.$inferSelect): Profile => ({ ...(r.live ?? 
 export const listPublished = async (): Promise<Profile[]> =>
   (await db.select().from(profile).where(and(eq(profile.published, true), isNull(profile.hiddenAt)))).map(publicDoc);
 
+/** When each live stage's handle was claimed (ISO), for "Newest" on /explore. */
+export const joinedDates = async (): Promise<Record<string, string>> =>
+  Object.fromEntries(
+    (await db.select({ handle: profile.handle, at: profile.createdAt }).from(profile).where(and(eq(profile.published, true), isNull(profile.hiddenAt)))).map((r) => [r.handle, r.at.toISOString()]),
+  );
+
 export const getPublished = async (handle: string): Promise<Profile | undefined> => {
   const [r] = await db.select().from(profile).where(and(eq(profile.handle, handle), eq(profile.published, true), isNull(profile.hiddenAt)));
   return r && publicDoc(r);
