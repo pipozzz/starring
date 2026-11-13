@@ -3,6 +3,7 @@
 // looks; this file holds the clock, the shared drawing helpers and the frame loop.
 
 import { at, timeline, type Scene, type Timed } from './script';
+import { STAR_PATH } from '../lib/brand';
 
 export interface Palette { bg: string; fg: string; muted: string; accent: string; line: string }
 
@@ -169,7 +170,7 @@ export function heatGeometry(st: Stage, cy: number, maxW: number, maxH: number) 
 
 // ---------- the Starring mark (same geometry as scripts/brand.mjs) ----------
 
-const STAR = 'M32 11L37.5 26.4L53.9 26.9L40.9 36.9L45.5 52.6L32 43.4L18.5 52.6L23.1 36.9L10.1 26.9L26.5 26.4Z';
+const STAR = STAR_PATH;
 let starPath: Path2D | null = null;
 
 /**
