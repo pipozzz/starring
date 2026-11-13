@@ -4,6 +4,7 @@ import { blankProfile, totals, validate, type Profile } from '../lib/model';
 import ProfileStory from '../story/ProfileStory';
 import { importGithub } from '../lib/importers/github';
 import { importJsonResume } from '../lib/importers/jsonresume';
+import { exportJsonResume } from '../lib/importers/jsonresume-export';
 import { importActivity, isActivityFile } from '../lib/importers/activity';
 import { LINKEDIN_FILES, importLinkedIn, readLinkedInZip, type LinkedInFiles } from '../lib/importers/linkedin';
 import { link, pageLink } from '../lib/url';
@@ -328,6 +329,13 @@ export default function Editor({ samples }: Props) {
     URL.revokeObjectURL(a.href);
     notify(`Saved ${p.handle}.yaml — put it in profiles/ and build`);
   };
+  const downloadResume = () => {
+    const blob = new Blob([`${JSON.stringify(exportJsonResume(p), null, 2)}\n`], { type: 'application/json' });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `${p.handle}.resume.json` });
+    a.click();
+    URL.revokeObjectURL(a.href);
+    notify(`Saved ${p.handle}.resume.json — works with any JSON Resume theme`);
+  };
   const copy = async () => {
     try { await navigator.clipboard.writeText(toYaml(p)); notify('YAML copied to clipboard'); } catch { notify('Clipboard blocked by the browser'); }
   };
@@ -473,6 +481,7 @@ export default function Editor({ samples }: Props) {
           )}
           {!server.hosted && <button type="button" className="ed-btn" onClick={download} title="⌘S">Export .yaml</button>}
           {server.hosted && <button type="button" className="ed-btn ghost hide-sm" onClick={download} title="⌘S">.yaml</button>}
+          <button type="button" className="ed-btn ghost hide-sm" onClick={downloadResume} title="Export JSON Resume: take your stage to any JSON Resume theme or CV tool">JSON Resume</button>
         </div>
       </header>
 
