@@ -1,6 +1,12 @@
 import { activityGrid, compact, ossHome, ossLogo, totals, heatmap, type OssKind, type Profile, type TalkKind, type Visibility } from '../lib/model';
 import { link } from '../lib/url';
 import './story.css';
+import { STAR_PATH } from '../lib/brand';
+
+/** The brand's five-point star, in the theme's accent. */
+const Star = () => (
+  <svg className="star" viewBox="10 11 44 42" aria-hidden="true"><path d={STAR_PATH} fill="currentColor" /></svg>
+);
 
 const VIS_LABEL: Record<Visibility, string> = { public: 'Open source', private: 'Private repo', nda: 'Under NDA' };
 const KIND_LABEL: Record<TalkKind, string> = { talk: 'Talk', article: 'Article', podcast: 'Podcast', video: 'Video', book: 'Book' };
@@ -112,7 +118,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
           <Label>Who trusted me with production</Label>
           <div className="marquee" aria-hidden="true">
             <div className="marquee-track display">
-              {[...clients, ...clients].map((c, i) => <span className="client" key={i}>{c.name}<i>✦</i></span>)}
+              {[...clients, ...clients].map((c, i) => <span className="client" key={i}>{c.name}<Star /></span>)}
             </div>
           </div>
           <ul className="client-list">
@@ -215,7 +221,7 @@ export default function ProfileStory({ p, preview = false, onSection, site }: Pr
             <ul className="awards">
               {awards.map((a, i) => (
                 <li className="award reveal" key={i}>
-                  <span className="award-mark accent" aria-hidden="true">✦</span>
+                  <span className="award-mark accent"><Star /></span>
                   <h3 className="display">{a.url ? <a href={a.url}>{a.title}</a> : a.title}</h3>
                   {(a.by || a.year) && <p className="mono">{joined(a.by, a.year)}</p>}
                   {a.note && <p className="muted">{a.note}</p>}
