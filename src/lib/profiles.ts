@@ -17,6 +17,8 @@ export interface ProfileStore {
   /** demo = showing examples/; personal = exactly one profile, shown as the home page */
   mode(): Promise<StoreMode>;
   list(): Promise<Profile[]>;
+  /** When each stage joined (handle → ISO date); empty where files don't say. */
+  joined(): Promise<Record<string, string>>;
   get(handle: string): Promise<Profile | undefined>;
 }
 
@@ -51,6 +53,7 @@ export const yamlStore = (dir = PROFILES_DIR, examples = EXAMPLES_DIR): ProfileS
       return n === 0 ? 'demo' : n === 1 ? 'personal' : 'directory';
     },
     list: async () => load(),
+    joined: async () => ({}),
     get: async (handle) => load().find((p) => p.handle === handle),
   };
 };
@@ -70,6 +73,7 @@ const hybridStore = (): ProfileStore => {
   return {
     mode: async () => (files().length || (await (await db()).listPublished()).length ? 'directory' : 'demo'),
     list: all,
+    joined: async () => (await db()).joinedDates(),
     get: async (handle) => files().find((p) => p.handle === handle) ?? (await (await db()).getPublished(handle)) ?? readDir(EXAMPLES_DIR).find((p) => p.handle === handle),
   };
 };
