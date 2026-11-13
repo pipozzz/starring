@@ -186,6 +186,11 @@ Open `/edit`, `/edit?new` for a blank profile, `/edit?from=<handle>` to edit an 
 - A self-hosted GitLab must allow cross-origin API requests, which GitLab does by default. If it doesn't, use `starring scan` below.
 - **Merge into current** adds GitLab and keeps your GitHub work, clients, timeline, yearly numbers and NDA work.
 
+**Bitbucket** ([`src/lib/importers/bitbucket.ts`](src/lib/importers/bitbucket.ts)): *Start from → Bitbucket workspace…* in the editor. It runs in the browser and talks only to `api.bitbucket.org`.
+- It imports the workspace's repositories as featured work (described and busiest first, forks skipped), their languages as skills, and your commits per year in the six most recently updated ones.
+- Without a token it reads public repositories only and matches your commits by the workspace name. With an Atlassian API token and your Atlassian email, it adds private repositories (as private work, never linked) and counts exactly your commits. A workspace access token works too. Tokens are never stored.
+- Bitbucket has no profile bio, location or role, so fill those in.
+
 **Private work, `starring scan`** ([`cli/`](cli/README.md)): this is the part GitHub can't show.
 
 ```bash
@@ -200,7 +205,7 @@ It counts *your* commits in local repos, including client work and a self-hosted
 
 **JSON Resume:** paste or drop a `resume.json` into the import dialog to fill your timeline, education, skills, projects, awards, certificates, publications, languages, interests and references. Contributed by @dailyun.
 
-**Planned:** Bitbucket and Gitea/Forgejo importers.
+**Planned:** a Gitea/Forgejo importer.
 
 ## Roadmap
 
@@ -211,7 +216,8 @@ It counts *your* commits in local repos, including client work and a self-hosted
 - [x] Theme plugins (`src/themes/<id>`) and a theme gallery
 - [x] Movie-poster Open Graph image per profile, JSON-LD, sitemap, embeddable card + oEmbed
 - [x] GitLab importer (gitlab.com + self-hosted)
-- [ ] Bitbucket / Gitea importers
+- [x] Bitbucket importer
+- [ ] Gitea/Forgejo importer
 - [x] Local `starring scan` CLI for private repos, with a real heatmap
 - [x] Server mode: sign up (email, GitHub, GitLab), claim a handle, autosave to Postgres, publish
 - [x] Hosted instance at starring.dev, with a private beta, invites, moderation and owner stats
