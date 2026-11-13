@@ -3,6 +3,7 @@
 // needs display:flex, and there is no grid.
 import { totals, type Profile } from '../model';
 import { getTheme } from '../../themes';
+import { credits } from './credits';
 
 const ANTON = 'Anton, Anton Ext';
 const GROTESK = 'Space Grotesk, Space Grotesk Ext';
@@ -32,9 +33,12 @@ export function ProfilePoster({ p, host, photo }: { p: Profile; host: string; ph
     s.clients > 0 && [String(s.clients), 'clients'],
     s.all > 0 && [`${s.privateShare}%`, 'in private repos'],
   ].filter(Boolean) as [string, string][];
-  const billing = (p.clients ?? []).map((c) => c.name).filter(Boolean).slice(0, 5);
-  const size = Math.round(nameSize(lines, !billing.length || !stats.length) * (photo ? 0.7 : 1));
   const PW = 380;
+  // JetBrains Mono at 18px with 2px tracking measures ≈ 13.3px a glyph; "With " takes five
+  const CREDIT = 18;
+  const room = W - 120 - (photo ? PW + 30 - 60 : 0);
+  const billing = credits((p.clients ?? []).map((c) => c.name), Math.floor(room / 13.5) - 6);
+  const size = Math.round(nameSize(lines, !billing || !stats.length) * (photo ? 0.7 : 1));
 
   return (
     <div style={{ width: W, height: H, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: t.bg, color: t.fg, padding: photo ? `44px ${PW + 30}px 40px 60px` : '44px 60px 40px', fontFamily: GROTESK, position: 'relative' }}>
@@ -71,9 +75,10 @@ export function ProfilePoster({ p, host, photo }: { p: Profile; host: string; ph
         </div>
       )}
 
-      {billing.length > 0 && (
-        <div style={{ display: 'flex', marginTop: 20, paddingTop: 14, borderTop: `2px solid ${t.line}`, fontFamily: MONO, fontSize: 16, letterSpacing: 2, textTransform: 'uppercase', color: t.muted, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-          {`With work for  ${billing.join('  ·  ')}`}
+      {billing && (
+        <div style={{ display: 'flex', marginTop: 20, paddingTop: 14, borderTop: `2px solid ${t.line}`, fontFamily: MONO, fontSize: CREDIT, letterSpacing: 2, textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+          <span style={{ color: t.accent }}>With&nbsp;</span>
+          <span style={{ color: t.muted }}>{billing}</span>
         </div>
       )}
     </div>
