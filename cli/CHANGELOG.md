@@ -1,5 +1,10 @@
 # starring-cli changelog
 
+## 0.4.0 — 2026-11-14
+
+- `starring discover [login]`: the editor's *Find updates* on your machine. It asks GitHub what your stage doesn't say yet: projects (from every year of your contribution graph), guest appearances in other people's repos, new star counts and yearly numbers. It uses `GITHUB_TOKEN`, or your `gh` CLI login if you have one; the only requests go to api.github.com. `-p your.yaml` compares with your profile (from the editor's *Copy YAML*), `-o file` writes a copy with everything added, ready to review and import, and `--json` prints the suggestions.
+- Still no dependencies: `discover` ships as one bundled file built from the same code the editor uses.
+
 ## 0.3.1 — 2026-10-27
 
 - `--check-public` no longer writes a wrong file when GitHub (or GitLab/Codeberg) runs out of requests. Unauthenticated GitHub allows 60 an hour, so on a machine with many repos — or after a second run — most repos came back "unknown" and their public work was counted as private. Now the scan stops, writes nothing, says when the limit resets, and shows the same command with `GITHUB_TOKEN=$(gh auth token)` in front. It also stops asking a host once it says "too many requests".

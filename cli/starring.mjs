@@ -2,18 +2,24 @@
 // starring — local helpers for your Starring profile (https://starring.dev)
 //
 //   starring scan [folders…] [options]
+//   starring discover [github-login] [options]
 //
 // Counts the commits YOU authored in local git repositories (client work, company
 // GitLab, private repos) and writes starring-activity.json. Only dates and counts are
 // written: no code, no commit messages, no repo names, no emails. Nothing is uploaded.
 // --check-public is the one exception to "no network": it asks GitHub, GitLab.com and
 // Codeberg whether each repo hosted there is public (see visibility.mjs).
+//
+// `discover` is the editor's "Find updates" on your machine: it asks GitHub (with GITHUB_TOKEN or
+// your gh CLI login) what your stage doesn't say yet. See src/cli/discover.ts.
+import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { defaultEmails, findRepos, remoteUrl, scan } from './scan.mjs';
 import { PUBLIC_HOSTS, checkVisibility, remoteRepo } from './visibility.mjs';
 
 const HELP = `starring scan [folders…] [options]
+starring discover [github-login] [options]   (see starring discover --help)
 
 Count your commits in local git repos for your Starring profile.
 Writes only dates and counts — no code, messages, repo names or emails. Nothing is uploaded.
@@ -39,6 +45,27 @@ Then open your Starring editor → Start from → Import, and drop the file in.
 Example
   npx starring-cli scan ~/work ~/clients -e me@agency.com -e me@client.com --exclude github.com`;
 
+const DISCOVER_HELP = `starring discover [github-login] [options]
+
+Find what GitHub knows that your Starring stage doesn't say yet: projects (old ones too),
+guest appearances in other people's repos, new star counts and yearly numbers.
+Runs on your machine; the only requests go to api.github.com. Nothing is uploaded.
+
+Options
+  -p, --profile <file>   your profile YAML (editor → Copy YAML); suggestions are what it lacks,
+                         and the GitHub login comes from its GitHub link
+  -o, --out <file>       write the profile with every suggestion added, to review and then
+                         import in the editor (Start from → Import)
+      --json             print the suggestions as JSON
+  -h, --help
+
+Token: GITHUB_TOKEN, else your gh CLI login (gh auth token). With one, every year of your
+contribution graph is read; without one, only recent public data (60 requests an hour).
+
+Examples
+  npx starring-cli discover octocat
+  npx starring-cli discover -p jane.yaml -o jane.updated.yaml`;
+
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
@@ -49,6 +76,8 @@ const { values, positionals } = parseArgs({
     exclude: { type: 'string', multiple: true },
     depth: { type: 'string' },
     out: { type: 'string', short: 'o' },
+    profile: { type: 'string', short: 'p' },
+    json: { type: 'boolean' },
     'reveal-hosts': { type: 'boolean' },
     quiet: { type: 'boolean', short: 'q' },
     help: { type: 'boolean', short: 'h' },
@@ -62,6 +91,14 @@ if (values.version) {
 }
 
 const [command, ...folders] = positionals;
+if (command === 'discover') {
+  if (values.help) {
+    console.log(DISCOVER_HELP);
+    process.exit(0);
+  }
+  await runDiscover(folders[0]);
+  process.exit(0);
+}
 if (values.help || !command) {
   console.log(HELP);
   process.exit(command || values.help ? 0 : 1);
@@ -140,4 +177,60 @@ if (toStdout) {
   }
   log(`\n✓ Wrote ${out} — only dates and counts; open it to check.`);
   log('  Next: Starring editor → Start from → Import YAML / JSON Resume / scan… and drop the file in.');
+}
+
+/** The GitHub token: GITHUB_TOKEN, else the gh CLI's, if it is installed and signed in. Never printed. */
+function githubToken() {
+  const env = process.env.GITHUB_TOKEN?.trim();
+  if (env) return { token: env, from: 'GITHUB_TOKEN' };
+  try {
+    const gh = execFileSync('gh', ['auth', 'token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 10_000 }).trim();
+    if (gh) return { token: gh, from: 'your gh login' };
+  } catch {}
+  return { token: undefined, from: '' };
+}
+
+async function runDiscover(login) {
+  const { findUpdates, readProfile, writeProfile } = await import('./discover.mjs');
+  const log = (...a) => console.error(...a);
+  let draft;
+  if (values.profile) {
+    try {
+      draft = readProfile(readFileSync(values.profile, 'utf8'));
+    } catch (e) {
+      console.error(`✖ ${values.profile}: ${e.code === 'ENOENT' ? 'no such file' : e.message}`);
+      process.exit(1);
+    }
+  }
+  const { token, from } = githubToken();
+  log(token ? `Asking GitHub with ${from} …` : 'Asking GitHub without a token (recent public data only; set GITHUB_TOKEN or sign in with gh for all years) …');
+  let res;
+  try {
+    res = await findUpdates({ login, draft, token });
+  } catch (e) {
+    console.error(`✖ ${e.message}`);
+    process.exit(1);
+  }
+  const { suggestions, updated } = res;
+  if (values.json) {
+    process.stdout.write(JSON.stringify(suggestions, null, 2) + '\n');
+  } else if (!suggestions.length) {
+    log(`\n✓ Nothing new: your stage already says everything GitHub knows about @${res.login}.`);
+  } else {
+    const label = { projects: 'Featured work', openSource: 'Guest appearances', contributions: 'Every commit counts' };
+    log(`\n${suggestions.length} update${suggestions.length > 1 ? 's' : ''} for @${res.login}${draft ? '' : ' (compared with an empty stage; pass -p your.yaml)'}:`);
+    for (const [section, name] of Object.entries(label)) {
+      const these = suggestions.filter((s) => s.section === section);
+      if (!these.length) continue;
+      log(`\n  ${name}`);
+      for (const s of these) log(`  + ${s.title}${s.detail ? `\n      ${s.detail}` : ''}`);
+    }
+  }
+  if (values.out && suggestions.length) {
+    writeFileSync(values.out, writeProfile(updated));
+    log(`\n✓ Wrote ${values.out} with all ${suggestions.length} added. Remove what you don't want, then`);
+    log('  Starring editor → Start from → Import, and drop it in. Or use Find updates in the editor.');
+  } else if (suggestions.length && !values.json) {
+    log('\n  Add them in the editor (Find updates), or run again with -o to write an updated YAML.');
+  }
 }
