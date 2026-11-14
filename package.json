@@ -22,7 +22,7 @@
     "test:e2e": "node scripts/e2e.mjs",
     "test:a11y": "node scripts/a11y.mjs",
     "brand": "node scripts/brand.mjs",
-    "build:cli": "esbuild src/cli/discover.ts --bundle --platform=node --format=esm --target=node20 --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\" --log-level=warning --outfile=cli/discover.mjs",
+    "build:cli": "esbuild src/cli/discover.ts --bundle --platform=node --format=esm --target=node20 --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\" --log-level=error --outfile=cli/discover.mjs",
     "starring": "npm run -s build:cli && node cli/starring.mjs"
   },
   "dependencies": {
