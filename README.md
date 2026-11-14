@@ -180,6 +180,17 @@ Open `/edit`, `/edit?new` for a blank profile, `/edit?from=<handle>` to edit an 
 - With an optional `read:user` token, it also imports exact contributions per year, including the private count GitHub reports when *Include private contributions* is on. The token is never stored.
 - **Merge into current** refreshes GitHub data and keeps your clients, timeline and NDA work.
 
+**GitLab** ([`src/lib/importers/gitlab.ts`](src/lib/importers/gitlab.ts)): *Start from → GitLab profile…* in the editor, for gitlab.com or a self-hosted GitLab. It runs in the browser and talks only to that instance's `/api/v4`.
+- It imports your name, your best own projects as featured work (stars and topics), the other projects you contributed to as guest appearances, and your public activity of the last three years (GitLab keeps events that long) as yearly counts.
+- gitlab.com shares bio, location, links and job title only with a token: add an optional `read_user` token, which is never stored.
+- A self-hosted GitLab must allow cross-origin API requests, which GitLab does by default. If it doesn't, use `starring scan` below.
+- **Merge into current** adds GitLab and keeps your GitHub work, clients, timeline, yearly numbers and NDA work.
+
+**Bitbucket** ([`src/lib/importers/bitbucket.ts`](src/lib/importers/bitbucket.ts)): *Start from → Bitbucket workspace…* in the editor. It runs in the browser and talks only to `api.bitbucket.org`.
+- It imports the workspace's repositories as featured work (described and busiest first, forks skipped), their languages as skills, and your commits per year in the six most recently updated ones.
+- Without a token it reads public repositories only and matches your commits by the workspace name. With an Atlassian API token and your Atlassian email, it adds private repositories (as private work, never linked) and counts exactly your commits. A workspace access token works too. Tokens are never stored.
+- Bitbucket has no profile bio, location or role, so fill those in.
+
 **Private work, `starring scan`** ([`cli/`](cli/README.md)): this is the part GitHub can't show.
 
 ```bash
@@ -194,7 +205,7 @@ It counts *your* commits in local repos, including client work and a self-hosted
 
 **JSON Resume:** paste or drop a `resume.json` into the import dialog to fill your timeline, education, skills, projects, awards, certificates, publications, languages, interests and references. Contributed by @dailyun.
 
-**Planned:** GitLab (including self-hosted), Bitbucket and Gitea importers.
+**Planned:** a Gitea/Forgejo importer.
 
 ## Roadmap
 
@@ -204,7 +215,9 @@ It counts *your* commits in local repos, including client work and a self-hosted
 - [x] GitHub Pages template workflow
 - [x] Theme plugins (`src/themes/<id>`) and a theme gallery
 - [x] Movie-poster Open Graph image per profile, JSON-LD, sitemap, embeddable card + oEmbed
-- [ ] GitLab / Bitbucket / Gitea importers
+- [x] GitLab importer (gitlab.com + self-hosted)
+- [x] Bitbucket importer
+- [ ] Gitea/Forgejo importer
 - [x] Local `starring scan` CLI for private repos, with a real heatmap
 - [x] Server mode: sign up (email, GitHub, GitLab), claim a handle, autosave to Postgres, publish
 - [x] Hosted instance at starring.dev, with a private beta, invites, moderation and owner stats
@@ -231,7 +244,7 @@ Postgres  ──┘   └──────────────┘   └─�
 Contributions of every size are welcome. Good places to start:
 
 - **A theme.** Run `npm run new:theme -- <id>`, pick 7 colours and 3 fonts, and open a PR. This is the easiest first PR.
-- **An importer** for GitLab ([#8](https://github.com/pipozzz/starring/issues/8)), Gitea/Forgejo ([#9](https://github.com/pipozzz/starring/issues/9)) or Bitbucket. Each one is a small, self-contained module.
+- **An importer** for Gitea/Forgejo ([#9](https://github.com/pipozzz/starring/issues/9)) or Bitbucket. Each one is a small, self-contained module.
 - **Translations** of the story labels ([#11](https://github.com/pipozzz/starring/issues/11)).
 - **Bug reports with a profile YAML** that renders wrong.
 
@@ -243,7 +256,7 @@ Saying you worked on a project for a company is usually fine. Showing its logo o
 
 ## Brand
 
-The mark is a four-point star cut out of an acid tile, the headline act. It's legible from a 16 px browser tab to an app icon, acid on dark and ink on light. The wordmark is a lowercase Space Grotesk *starring*. You'll find the assets in [`public/brand/`](public/brand/) (`logo.svg`, `logo-light.svg`, `mark.svg`, `app-icon.png`) and the [brand sheet](docs/brand/sheet.png). Run `npm run brand` to regenerate them.
+The mark is a five-point star, the Walk of Fame kind, cut out of an acid tile: the headline act. It's legible from a 16 px browser tab to an app icon, acid on dark and ink on light. The wordmark is a lowercase Space Grotesk *starring*. You'll find the assets in [`public/brand/`](public/brand/) (`logo.svg`, `logo-light.svg`, `mark.svg`, `app-icon.png`) and the [brand sheet](docs/brand/sheet.png). Run `npm run brand` to regenerate them.
 
 ## License
 

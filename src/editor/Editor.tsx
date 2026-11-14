@@ -4,15 +4,18 @@ import { blankProfile, totals, validate, type Profile } from '../lib/model';
 import ProfileStory from '../story/ProfileStory';
 import { importGithub } from '../lib/importers/github';
 import { importJsonResume } from '../lib/importers/jsonresume';
+import { exportJsonResume } from '../lib/importers/jsonresume-export';
 import { importActivity, isActivityFile } from '../lib/importers/activity';
 import { LINKEDIN_FILES, importLinkedIn, readLinkedInZip, type LinkedInFiles } from '../lib/importers/linkedin';
 import { link, pageLink } from '../lib/url';
 import GithubDialog from './GithubDialog';
+import GitlabDialog from './GitlabDialog';
+import BitbucketDialog from './BitbucketDialog';
 import ShareDialog from './ShareDialog';
 import CvDialog from './CvDialog';
 import ReviewDialog from './ReviewDialog';
-import DiscoverDialog from './DiscoverDialog';
-import { applyChange } from '../lib/discover';
+import DiscoverDialog, { type Check } from './DiscoverDialog';
+import { applyChange, discover } from '../lib/discover';
 import { countChanges, diffProfiles } from '../lib/diff';
 import Onboarding from './Onboarding';
 import { useServer, type SyncStatus } from './useServer';
@@ -157,6 +160,8 @@ export default function Editor({ samples }: Props) {
   const cvProvider = server.me?.features?.cvImport ?? null;
   const [importMode, setImportMode] = useState<'fresh' | 'merge'>('merge');
   const [gh, setGh] = useState<{ open: boolean; user?: string; error?: string; busy?: boolean }>({ open: false });
+  const [glOpen, setGlOpen] = useState(false);
+  const [bbOpen, setBbOpen] = useState(false);
   const [notes, setNotes] = useState<string[]>([]);
   const [onboardDismissed, setOnboardDismissed] = useState(false);
   // A new account that only saw the sample profile starts onboarding from a blank stage
@@ -177,6 +182,17 @@ export default function Editor({ samples }: Props) {
   const ready = useMemo(() => readiness(p), [p]);
   // what the draft would change on the public stage (only once there is one)
   // (the live copy gets the same defaults the editor fills in, so opening a stage isn't a "change")
+  // the weekly GitHub check (src/server/discovery.ts): its suggestions, against the draft as it is now
+  const [check, setCheck] = useState<Check | null>(null);
+  const ownHandle = server.own?.handle;
+  useEffect(() => {
+    if (!ownHandle) return;
+    fetch('/api/discover', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.check && setCheck(d.check))
+      .catch(() => {});
+  }, [ownHandle]);
+  const updates = useMemo(() => (check?.found ? discover(p, check.found, new Set(check.dismissed)).length : 0), [check, p]);
   const changes = useMemo(() => (server.own?.published && server.own.live ? diffProfiles(normalize(server.own.live), p) : []), [server.own, p]);
   const changeCount = countChanges(changes);
   const issueCount = Object.keys(issues).length;
@@ -244,6 +260,8 @@ export default function Editor({ samples }: Props) {
     commit(next);
     setNotes(importNotes);
     setGh({ open: false });
+    setGlOpen(false);
+    setBbOpen(false);
     setActive('profile');
     notify(`${label} — Cmd+Z to undo`, true);
   };
@@ -317,6 +335,13 @@ export default function Editor({ samples }: Props) {
     URL.revokeObjectURL(a.href);
     notify(`Saved ${p.handle}.yaml — put it in profiles/ and build`);
   };
+  const downloadResume = () => {
+    const blob = new Blob([`${JSON.stringify(exportJsonResume(p), null, 2)}\n`], { type: 'application/json' });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `${p.handle}.resume.json` });
+    a.click();
+    URL.revokeObjectURL(a.href);
+    notify(`Saved ${p.handle}.resume.json — works with any JSON Resume theme`);
+  };
   const copy = async () => {
     try { await navigator.clipboard.writeText(toYaml(p)); notify('YAML copied to clipboard'); } catch { notify('Clipboard blocked by the browser'); }
   };
@@ -378,6 +403,8 @@ export default function Editor({ samples }: Props) {
               <p className="ed-menu-h mono">Start from</p>
               {cvProvider && <button type="button" className="ed-menu-gh" onClick={() => { setCvOpen(true); setMenu(null); }}>Your CV or any text… <span className="muted">AI draft</span></button>}
               <button type="button" className="ed-menu-gh" onClick={() => { setGh({ open: true }); setMenu(null); }}>GitHub profile… <span className="muted">instant draft</span></button>
+              <button type="button" className="ed-menu-gh" onClick={() => { setGlOpen(true); setMenu(null); }}>GitLab profile… <span className="muted">gitlab.com or self-hosted</span></button>
+              <button type="button" className="ed-menu-gh" onClick={() => { setBbOpen(true); setMenu(null); }}>Bitbucket workspace… <span className="muted">public, or private with a token</span></button>
               <button type="button" onClick={() => { commit(blankProfile()); setMenu(null); notify('Blank stage — Cmd+Z to undo', true); }}>Blank stage</button>
               {samples.map((s) => (
                 <button type="button" key={s.handle} onClick={() => { commit(structuredClone(s)); setMenu(null); notify(`Loaded /${s.handle} — Cmd+Z to undo`, true); }}>
@@ -462,6 +489,7 @@ export default function Editor({ samples }: Props) {
           )}
           {!server.hosted && <button type="button" className="ed-btn" onClick={download} title="⌘S">Export .yaml</button>}
           {server.hosted && <button type="button" className="ed-btn ghost hide-sm" onClick={download} title="⌘S">.yaml</button>}
+          <button type="button" className="ed-btn ghost hide-sm" onClick={downloadResume} title="Export JSON Resume: take your stage to any JSON Resume theme or CV tool">JSON Resume</button>
         </div>
       </header>
 
@@ -472,8 +500,8 @@ export default function Editor({ samples }: Props) {
             <span><span className="mono">Stage ready</span><span className="ed-hint">{ready.todo.length ? `${ready.todo.length} to go` : 'Starring!'}</span></span>
           </button>
           {server.own && (
-            <button type="button" className="ed-discover-btn mono" onClick={() => setDiscoverOpen(true)} title="Look on GitHub for new projects, contributions and stars">
-              ↻ <span>Find updates</span>
+            <button type="button" className="ed-discover-btn mono" onClick={() => setDiscoverOpen(true)} title={updates ? `${updates} update${updates === 1 ? '' : 's'} from GitHub to add` : 'Look on GitHub for new projects, contributions and stars'}>
+              ↻ <span>Find updates</span>{updates > 0 && <b className="ed-count" aria-label={`${updates} new`}>{updates}</b>}
             </button>
           )}
           {menu === 'ready' && ready.todo.length > 0 && (
@@ -563,6 +591,8 @@ export default function Editor({ samples }: Props) {
       {discoverOpen && (
         <DiscoverDialog
           draft={p}
+          check={check}
+          onCheck={setCheck}
           onApply={(changes) => commit(changes.reduce(applyChange, p))}
           onSection={pick}
           onClose={() => setDiscoverOpen(false)}
@@ -605,6 +635,8 @@ export default function Editor({ samples }: Props) {
           onClose={() => setCvOpen(false)}
         />
       )}
+      {glOpen && <GitlabDialog current={p} onDone={imported} onClose={() => setGlOpen(false)} />}
+      {bbOpen && <BitbucketDialog current={p} onDone={imported} onClose={() => setBbOpen(false)} />}
       {gh.open && <GithubDialog current={p} initialUser={gh.user} initialError={gh.error} onDone={imported} onClose={() => setGh({ open: false })} />}
       {gh.busy && <div className="ed-busy display" role="status">Reading GitHub<span className="accent">…</span></div>}
       {importOpen && (
