@@ -6,7 +6,7 @@ Count the commits **you** authored in local git repositories (client work, a com
 npx starring-cli scan ~/work ~/clients -e me@agency.com -e me@client.com --check-public
 ```
 
-[![npm](https://img.shields.io/npm/v/starring-cli)](https://www.npmjs.com/package/starring-cli) There are no dependencies, and it needs Node 20+ and `git`. Prefer to read the code first? It's three small files. You can also run it from a clone: `node cli/starring.mjs scan …`.
+[![npm](https://img.shields.io/npm/v/starring-cli)](https://www.npmjs.com/package/starring-cli) There are no dependencies, and it needs Node 20+ and `git`. Prefer to read the code first? `scan` is three small files; `discover` is bundled from [`src/cli/discover.ts`](../src/cli/discover.ts) and the editor's own importer. You can also run it from a clone: `node cli/starring.mjs scan …`.
 
 This writes `starring-activity.json`. To use it, open the editor, choose **Start from → Import YAML / JSON Resume / scan…** and drop the file in. Your profile gets:
 
@@ -14,9 +14,26 @@ This writes `starring-activity.json`. To use it, open the editor, choose **Start
 - platforms such as "GitLab (self-hosted)" with repo and commit counts,
 - a real heatmap: commits per day instead of a generated pattern.
 
+## `starring discover`: what GitHub knows that your stage doesn't say
+
+```bash
+npx starring-cli discover -p jane.yaml -o jane.updated.yaml
+```
+
+This is the editor's **Find updates**, run on your machine with your own GitHub token. It lists the projects (from every year of your contribution graph, not just recent ones), guest appearances in other people's repos, new star counts and yearly numbers that your profile is missing.
+
+| Option | |
+| --- | --- |
+| `[login]` | Your GitHub login. Optional with `-p`, which takes it from the profile's GitHub link |
+| `-p, --profile <file>` | Your profile YAML (editor → **Copy YAML**). Without it, everything GitHub knows is listed |
+| `-o, --out <file>` | Write a copy of the profile with every suggestion added. Remove what you don't want, then import it in the editor |
+| `--json` | Print the suggestions as JSON |
+
+**Token:** it uses `GITHUB_TOKEN`, or, if that isn't set, your GitHub CLI login (`gh auth token`). The token is sent only to api.github.com and is never printed or stored. With a token, every year of your contribution graph is read. Without one, only recent public data is read, within GitHub's 60 requests an hour.
+
 ## What leaves your machine
 
-Nothing, unless you ask. The scan runs locally and makes no network requests — except with `--check-public`, which asks GitHub, GitLab.com and Codeberg one question per repo hosted there: *is this repo public?* Those hosts already know the repo's name, and nothing about your commits is sent. Repos on any other server are never contacted and count as private. The output file contains only **dates and counts**: no code, commit messages, repo names, paths or emails. Self-hosted servers are listed as kinds ("GitLab (self-hosted)") unless you pass `--reveal-hosts`. Open the file and check before importing.
+Nothing, unless you ask. `discover` talks to api.github.com only, and uploads nothing. The scan runs locally and makes no network requests — except with `--check-public`, which asks GitHub, GitLab.com and Codeberg one question per repo hosted there: *is this repo public?* Those hosts already know the repo's name, and nothing about your commits is sent. Repos on any other server are never contacted and count as private. The output file contains only **dates and counts**: no code, commit messages, repo names, paths or emails. Self-hosted servers are listed as kinds ("GitLab (self-hosted)") unless you pass `--reveal-hosts`. Open the file and check before importing.
 
 ## Options
 

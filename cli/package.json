@@ -1,7 +1,7 @@
 {
   "name": "starring-cli",
-  "version": "0.3.1",
-  "description": "Count your commits in private git repos — locally — for your Starring profile. Code, messages and repo names never leave your machine.",
+  "version": "0.4.0",
+  "description": "Local helpers for your Starring profile: count your commits in private repos, and find what GitHub knows that your stage doesn’t say yet. Nothing is uploaded.",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -11,6 +11,7 @@
     "starring.mjs",
     "scan.mjs",
     "visibility.mjs",
+    "discover.mjs",
     "README.md",
     "CHANGELOG.md"
   ],
@@ -29,5 +30,8 @@
     "resume",
     "contributions",
     "privacy"
-  ]
+  ],
+  "scripts": {
+    "prepack": "npm --prefix .. run build:cli"
+  }
 }

@@ -21,7 +21,9 @@
     "check:themes": "node scripts/check-themes.mjs",
     "test:e2e": "node scripts/e2e.mjs",
     "test:a11y": "node scripts/a11y.mjs",
-    "brand": "node scripts/brand.mjs"
+    "brand": "node scripts/brand.mjs",
+    "build:cli": "esbuild src/cli/discover.ts --bundle --platform=node --format=esm --target=node20 --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\" --log-level=error --outfile=cli/discover.mjs",
+    "starring": "npm run -s build:cli && node cli/starring.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
@@ -60,6 +62,7 @@
     "ajv-formats": "^3.0.1",
     "axe-core": "^4.14.0",
     "drizzle-kit": "^0.31.11",
+    "esbuild": "^0.28.2",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   },

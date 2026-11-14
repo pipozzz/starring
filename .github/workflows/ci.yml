@@ -43,7 +43,7 @@ jobs:
         run: |
           out=$(npm pack --dry-run --json 2>pack.err)
           if grep -i "warn" pack.err; then echo "::error::npm pack warned — fix cli/package.json"; exit 1; fi
-          echo "$out" | node -e 'const [p]=JSON.parse(require("fs").readFileSync(0,"utf8")); const f=p.files.map(x=>x.path); for (const need of ["starring.mjs","scan.mjs","package.json"]) if(!f.includes(need)) throw new Error("missing "+need); console.log("ok:", f.join(", "))'
+          echo "$out" | node -e 'const [p]=JSON.parse(require("fs").readFileSync(0,"utf8")); const f=p.files.map(x=>x.path); for (const need of ["starring.mjs","scan.mjs","discover.mjs","package.json"]) if(!f.includes(need)) throw new Error("missing "+need); console.log("ok:", f.join(", "))'
           node -e 'const p=require("./package.json"); if(!p.bin||!p.bin.starring) throw new Error("bin.starring missing")'
 
   build:

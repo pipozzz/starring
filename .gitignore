@@ -8,3 +8,6 @@ dist
 
 # output of `starring scan` (personal activity data)
 starring-activity.json
+
+# bundled from src/cli by `npm run build:cli` (and on npm pack)
+cli/discover.mjs
